@@ -17,13 +17,13 @@ namespace cg = cooperative_groups;
 #define INF  1073741824
 #define ONE  1
 #define ZERO 0
-#define NUM_THDS 256
+#define NUM_THDS 512
 #define NUM_BLKS atoi(argv[2])
 #define LOG_BLK_ID 1
-// #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
-// #define CLK_CPU(IDX) clk[IDX] += clock() - clk_; clk_ = clock();
-#define CLK(IDX) ;
-#define CLK_CPU(IDX) ;
+#define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
+#define CLK_CPU(IDX) clk[IDX] += clock() - clk_; clk_ = clock();
+// #define CLK(IDX) ;
+// #define CLK_CPU(IDX) ;
 
 typedef struct {
 	int start;     // Index of first adjacent node in Ea	
@@ -35,7 +35,8 @@ typedef struct {
 	unordered_set<int> R;
 } Biclique;
 
-void my_memset(int *SA, int val, int len) {
+template <class T>
+void my_memset(T *SA, T val, int len) {
     for (int i = 0; i < len; i++)
         SA[i] = val;
 }
@@ -805,10 +806,11 @@ __global__ void CUDA_MBE(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, int
     }
 }
 
+__device__ int g_clk[10];
 __device__ int total_bic;
 __device__ int P_ptr;
 __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, int *edge,
-                            int *g_u2L, int *g_L, int *g_R, int *g_P, int *g_Q,
+                            int *g_u2L, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp) {
 
     int *u2L  = g_u2L  + blockIdx.x * (*NUM_L);
@@ -821,6 +823,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
     int *R_lp = g_R_lp + blockIdx.x * (*NUM_R);
     int *P_lp = g_P_lp + blockIdx.x * (*NUM_R);
     int *Q_lp = g_Q_lp + blockIdx.x * (*NUM_R);
+    int *Q_rm = g_Q_rm + blockIdx.x * (*NUM_R);
     grid_group grid = this_grid();
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int num_total_thds = gridDim.x * blockDim.x;
@@ -838,12 +841,15 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
     __shared__ bool is_maximal;
     __shared__ int num_L_nxt, num_N_v;
 
-    // __shared__ long long clk[10], clk_;
-    // if (!threadIdx.x) {
-    //     clk_ = clock();
-    //     for (int i = 0; i < 10; i++)
-    //         clk[i] = 0;
-    // }
+    __shared__ long long clk[10], clk_;
+    if (!threadIdx.x) {
+        clk_ = clock();
+        for (int i = 0; i < 10; i++)
+            clk[i] = 0;
+        if (!blockIdx.x)
+            for (int i = 0; i < 10; i++)
+                g_clk[i] = 0;
+    }
 
     if (!tid) {
         P_ptr = *NUM_R - 1;
@@ -925,8 +931,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                 // atomically get a new 1-level sub-tree
                 // Q <--- Q ∪ {x before P_ptr};
                 for (int i = *P_lp_cur, i_end = *P_lp_cur -= gridDim.x; --i > i_end; ) {
-                    if (i < *NUM_R)
+                    if (i < *NUM_R) {
+                        Q_rm[*Q_lp_cur] = INF;
                         Q[(*Q_lp_cur)++] = i;
+                    }
                 }
                 // for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; )
                 //     Q[(*Q_lp_cur)++] = i;
@@ -990,6 +998,11 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             // foreach v ∈ Q
             for (int i = 0; i < *Q_lp_cur; i++) {
 
+                if (Q_rm[i] < lvl) {
+                    __syncthreads();
+                    continue;
+                }
+
                 int v = Q[i];
 
                 if (!threadIdx.x)
@@ -1005,16 +1018,21 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                 }
 
                 __syncthreads();
+
+                if (!threadIdx.x)
+                    Q_rm[i] = INF;
                 
                 // if |N[v]| = |L'| then
                 if (num_N_v == num_L_nxt) {
                     is_maximal = false;
                     break;
                 }
-                // // else if |N[v]| > 0 then
-                // else if (num_N_v == 0)
-                //     // Q' ← Q' ∪ {v};
-                //     swap(Q[(*Q_ls_nxt)++], Q[i]);
+                // else if |N[v]| > 0 then
+                else if (num_N_v == 0)
+                    // Q' ← Q' ∪ {v};
+                    // swap(Q[(*Q_ls_nxt)++], Q[i]);
+                    if (!threadIdx.x)
+                        Q_rm[i] = lvl;
 
                 __syncthreads();
                 
@@ -1123,6 +1141,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             if (!threadIdx.x) {
 
                 // Q ← Q ∪ {x};
+                Q_rm[*Q_lp_cur] = INF;
                 Q[(*Q_lp_cur)++] = *x_cur;
                 //// printf("\n往 右 安安");
 
@@ -1216,6 +1235,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
             // foreach v ∈ Q
             for (int i = 0; i < *Q_lp_cur; i++) {
+                if (Q_rm[i] < lvl) {
+                    __syncthreads();
+                    continue;
+                }
 
                 int v = Q[i];
 
@@ -1230,18 +1253,23 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                     if (L[l] > lvl)
                         atomicAdd(&num_N_v, 1);
                 }
-
+                
                 __syncthreads();
                 
+                if (!threadIdx.x)
+                    Q_rm[i] = INF;
+
                 // if |N[v]| = |L'| then
                 if (num_N_v == num_L_nxt) {
                     is_maximal = false;
                     break;
                 }
-                // // else if |N[v]| > 0 then
-                // else if (num_N_v == 0)
-                //     // Q' ← Q' ∪ {v};
-                //     swap(Q[(*Q_ls_nxt)++], Q[i]);
+                // else if |N[v]| > 0 then
+                else if (num_N_v == 0)
+                    // Q' ← Q' ∪ {v};
+                    // swap(Q[(*Q_ls_nxt)++], Q[i]);
+                    if (!threadIdx.x)
+                        Q_rm[i] = lvl;
 
                 __syncthreads();
                 
@@ -1350,6 +1378,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             if (!threadIdx.x) {
 
                 // Q ← Q ∪ {x};
+                Q_rm[*Q_lp_cur] = INF;
                 Q[(*Q_lp_cur)++] = *x_cur;
                 //// printf("\n往 右 安安");
 
@@ -1364,8 +1393,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
         if (!threadIdx.x) {
 
             if (!is_recursive) {
-                if (lvl--)
+                if (lvl--) {
+                    Q_rm[Q_lp[lvl]] = INF;
                     Q[Q_lp[lvl]++] = x[lvl];
+                }
                 //// printf("\n往 上 安安");
                 //// printf("\n往 右 安安");
             }
@@ -1381,16 +1412,18 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
     if (!threadIdx.x) {
         //// printf("\nBlock: %d find %d maximal bicliques.\n", blockIdx.x, num_maximal_bicliques);
         atomicAdd(&total_bic, num_maximal_bicliques);
-        //// printf("time:");
-        //// for (int i = 0; i < 10; i++) {
-        ////     // clk[i] >>= 21;
-        ////     printf(" %lld", clk[i]);
-        //// }
-        //// printf("\n");
+        for (int i = 0; i < 10; i++) {
+            clk[i] >>= 21;
+            atomicAdd(&(g_clk[i]), (int)clk[i]);
+        }
     }
     grid.sync();
     if (!tid) {
         printf("\33[%d;1Htotal maximal bicliques : %d\n", (gridDim.x + (10-1)) / 10 + 1, total_bic);
+        printf("Time:");
+        for (int i = 0; i < 10; i++)
+            printf(" %d", g_clk[i]);
+        printf("\n");
     }
     grid.sync();
 }
@@ -1406,9 +1439,11 @@ int main(int argc, char* argv[])
     // MBE
     int *u2L, *L, *R, *P, *Q;
     int *x, *L_lp, *R_lp, *P_lp, *Q_lp;
+    int *Q_rm;
     // MBE_82
     int *g_u2L, *g_L, *g_R, *g_P, *g_Q;
     int *g_x, *g_L_lp, *g_R_lp, *g_P_lp, *g_Q_lp;
+    int *g_Q_rm;
     cudaMallocManaged(&NUM_EDGES, sizeof(int));
     cudaMallocManaged(&NUM_L    , sizeof(int));
     cudaMallocManaged(&NUM_R    , sizeof(int));
@@ -1446,6 +1481,7 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&R_lp, sizeof(int)*(*NUM_R)); my_memset(R_lp,      0, *NUM_R);
     cudaMallocManaged(&P_lp, sizeof(int)*(*NUM_R)); my_memset(P_lp, *NUM_R, *NUM_R);
     cudaMallocManaged(&Q_lp, sizeof(int)*(*NUM_R)); my_memset(Q_lp,      0, *NUM_R);
+    cudaMallocManaged(&Q_rm, sizeof(int)*(*NUM_R)); my_memset(Q_rm,    INF, *NUM_R);
     // MBE_82
     cudaMallocManaged(&g_u2L , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )  g_u2L[i] =  u2L[i % (*NUM_L)];
     cudaMallocManaged(&g_L   , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )    g_L[i] =    L[i % (*NUM_L)];
@@ -1457,9 +1493,10 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&g_R_lp, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_R_lp[i] = R_lp[i % (*NUM_R)];
     cudaMallocManaged(&g_P_lp, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_P_lp[i] = P_lp[i % (*NUM_R)];
     cudaMallocManaged(&g_Q_lp, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_Q_lp[i] = Q_lp[i % (*NUM_R)];
+    cudaMallocManaged(&g_Q_rm, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_Q_rm[i] = Q_rm[i % (*NUM_R)];
 
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node, &edge, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
-    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node, &edge, &g_u2L, &g_L, &g_R, &g_P, &g_Q, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp};
+    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node, &edge, &g_u2L, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp};
 
     float time;
     cudaEvent_t start, stop;
@@ -1476,7 +1513,7 @@ int main(int argc, char* argv[])
     else if (mode == 0) {
         cudaLaunchCooperativeKernel((void*)CUDA_MBE, num_blocks_MBE, block_size, kernelArgs_MBE);
     }
-    else if (mode <= 9999) {
+    else {
         cout << "\33[2J\n";
         stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
     }

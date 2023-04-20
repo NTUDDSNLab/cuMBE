@@ -1,6 +1,6 @@
 FLAGS_TLP = -O3 --compiler-options -Wall -Xptxas -v
 # FLAGS_TLP = --compiler-options -Wall -Xptxas -v
-SRC_PATH = ./SpMM
+SRC_PATH = ./src
 BIN_PATH = ./bin
 LOG_PATH = ./log
 COMP_LOG = compile
