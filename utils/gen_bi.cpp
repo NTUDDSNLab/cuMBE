@@ -1,0 +1,90 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+// ------------------------------ //
+// Use: Convert a bipartite graph //
+//   1. from edge-pair to CSR.    //
+//   2. from CSR to adj. matrix.  //
+// --------- How to use --------- //
+// g++ -O3 csr.cpp -o csr         //
+// ./csr [f_edge] [f_CSR] [f_adj] //
+// ------------------------------ //
+// f_edge: input file (edge-pair) //
+// f_CSR: output file (CSR fmt)   //
+// f_adj: output file (adj fmt)   //
+// ------------------------------ //
+
+int main(int argc, char* argv[])
+{
+	if (!argv[2]) { cout << "Wrong Dataset :(\n"; return 0; }
+
+    ifstream fin;
+    fin.open(argv[1]);
+
+	string _;
+	int num_r = 0, num_l = 0, num_edges = 0, source = 0;
+	int num_passed_words, num_passed_words_per_edge;
+	
+	// cout << "Number of nodes: "; cin >> num_nodes;
+	// cout << "Number of edges: "; cin >> num_edges;
+	// ----- Something needed to be passed ----- //
+	cout << "Number of passed words: "; cin >> num_passed_words;
+	cout << "Number of passed words per edge: "; cin >> num_passed_words_per_edge;
+	for (int i = 0; i < num_passed_words; i++) fin >> _;
+
+	map<int, int> row_id, col_id;
+	vector<int> node_length;
+	vector< unordered_set<int> > edge;
+	
+	for (int node_r, node_l, i_edge = 0, progress_reporter = -1, progress_clk = -1; fin >> node_r >> node_l; i_edge++) {
+		for (int i = 0; i < num_passed_words_per_edge; i++) fin >> _;
+		if (row_id.insert(pair<int, int>(node_r, num_r)).second) {
+			edge.resize(++num_r);
+			node_length.resize(num_r);
+		}
+		if (col_id.insert(pair<int, int>(node_l, num_l)).second) {
+			num_l++;
+		}
+		int node_r_id = row_id[node_r];
+		int node_l_id = col_id[node_l];
+		edge[node_r_id].insert(node_l_id);
+		int percent = (double)i_edge / num_edges * 100;
+		int runtime = clock() >> 19;
+		if (percent > progress_reporter && runtime > progress_clk) {
+			progress_reporter = percent; progress_clk = runtime;
+			cout << "Loading..." << setw(3) << progress_reporter << " %\n";
+		}
+	}
+
+	for (int i = 0; i < num_r; i++) {
+		// random gen //
+		int prob = atoi(argv[3]);
+		edge[i].clear();
+		for (int j = 0; j < num_l; j++)
+			if (rand()%1024 < prob)
+				edge[i].insert(j);
+		// random gen //
+		node_length[i] = edge[i].size();
+		num_edges += node_length[i];
+	}
+
+	fin.close();
+	
+	cout << "Loading... Done\nWriting...";
+
+	ofstream fout;
+	fout.open(argv[2]);
+
+	fout << num_r << ' ' << num_l << ' ' << num_edges << "\n\n";
+
+	for (int sum = 0, i = 0; i < num_r; sum += node_length[i++])
+		fout << sum << " " << node_length[i] << "\n";
+	
+	for (int i = 0; i < num_r; i++)
+		for (const auto &edge_ : edge[i])
+			fout << "\n" << edge_ << " 1";
+
+	cout << " Done\n";
+
+	fout.close();
+}
