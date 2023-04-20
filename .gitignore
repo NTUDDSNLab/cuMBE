@@ -1,0 +1,11 @@
+# ignore log file
+/log
+
+# ignore binary file
+/bin
+
+# ignore some tools by perl
+utils/*.pl
+
+# ignore some tools by cpp
+utils/*.out
