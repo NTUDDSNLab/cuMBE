@@ -17,7 +17,7 @@ namespace cg = cooperative_groups;
 #define INF  1073741824
 #define ONE  1
 #define ZERO 0
-#define NUM_THDS 512
+#define NUM_THDS 256
 #define NUM_BLKS atoi(argv[2])
 #define LOG_BLK_ID 1
 #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
