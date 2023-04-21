@@ -17,7 +17,7 @@ namespace cg = cooperative_groups;
 #define INF  1073741824
 #define ONE  1
 #define ZERO 0
-#define NUM_THDS 512
+#define NUM_THDS 256
 #define NUM_BLKS atoi(argv[2])
 #define LOG_BLK_ID 1
 #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
@@ -860,7 +860,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
     if (!threadIdx.x) {
         lvl = 0;
-        P_lp[0] = *NUM_R + blockIdx.x;
+        // P_lp[0] = *NUM_R + blockIdx.x;
+        P_lp[0] = *NUM_R;
         //// printf("blk %d, u2L : %p\n", blockIdx.x, u2L );
         //// printf("blk %d, L   : %p\n", blockIdx.x, L   );
         //// printf("blk %d, R   : %p\n", blockIdx.x, R   );
@@ -893,7 +894,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
         if (lvl == 0)
         // while P ≠ ∅ do
-        while (*P_lp_cur >= gridDim.x) {
+        while (*P_lp_cur >= gridDim.x || 1) {
             
             __syncthreads();
 
@@ -930,14 +931,20 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
                 // atomically get a new 1-level sub-tree
                 // Q <--- Q ∪ {x before P_ptr};
-                for (int i = *P_lp_cur, i_end = *P_lp_cur -= gridDim.x; --i > i_end; ) {
-                    if (i < *NUM_R) {
+                // for (int i = *P_lp_cur, i_end = *P_lp_cur -= gridDim.x; --i > i_end; ) {
+                //     if (i < *NUM_R) {
+                //         Q_rm[*Q_lp_cur] = INF;
+                //         Q[(*Q_lp_cur)++] = i;
+                //     }
+                // }
+                for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; ) {
+                    if (i >= 0) {
                         Q_rm[*Q_lp_cur] = INF;
                         Q[(*Q_lp_cur)++] = i;
                     }
                 }
-                // for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; )
-                //     Q[(*Q_lp_cur)++] = i;
+
+                // printf("blk %d, P_lp_cur: %d\n", blockIdx.x, *P_lp_cur);
 
                 // reset P to ordered
                 for (int i = 0; i < *NUM_R; i++)
@@ -959,6 +966,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             __syncthreads();
 
             CLK(1);
+
+            if (*P_lp_cur < 0) break;
 
             // |L'|
             // for (int l = tid; l < *NUM_L; l += num_total_thds)
@@ -1389,7 +1398,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
         __syncthreads();
 
         // printf("tid: %d, lvl: %d\n", tid, lvl);
-
+        // 感覺這邊break完之後不用做?
         if (!threadIdx.x) {
 
             if (!is_recursive) {
