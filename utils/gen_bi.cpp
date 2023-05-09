@@ -1,18 +1,14 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-// ------------------------------ //
-// Use: Convert a bipartite graph //
-//   1. from edge-pair to CSR.    //
-//   2. from CSR to adj. matrix.  //
-// --------- How to use --------- //
-// g++ -O3 csr.cpp -o csr         //
-// ./csr [f_edge] [f_CSR] [f_adj] //
-// ------------------------------ //
-// f_edge: input file (edge-pair) //
-// f_CSR: output file (CSR fmt)   //
-// f_adj: output file (adj fmt)   //
-// ------------------------------ //
+// -------------------------------- //
+// Use: Convert to bipartite graph  //
+//   1. from edge-pair to CSR.      //
+//   2. from CSR to adj. matrix.    //
+// ---------- How to use ---------- //
+// g++ -O3 gen_bi.cpp -o gen_bi.out //
+// ./gen_bi.out [f_edge] [f_CSR]    //
+// -------------------------------- //
 
 int main(int argc, char* argv[])
 {
@@ -36,7 +32,7 @@ int main(int argc, char* argv[])
 	vector<int> node_length;
 	vector< unordered_set<int> > edge;
 	
-	for (int node_r, node_l, i_edge = 0, progress_reporter = -1, progress_clk = -1; fin >> node_r >> node_l; i_edge++) {
+	for (int node_r, node_l, i_edge = 0, progress_reporter = -1, progress_clk = -1; /*fin >> node_r >> node_l*/fin >> node_l >> node_r; i_edge++) {
 		for (int i = 0; i < num_passed_words_per_edge; i++) fin >> _;
 		if (row_id.insert(pair<int, int>(node_r, num_r)).second) {
 			edge.resize(++num_r);
@@ -58,11 +54,11 @@ int main(int argc, char* argv[])
 
 	for (int i = 0; i < num_r; i++) {
 		// random gen //
-		int prob = atoi(argv[3]);
-		edge[i].clear();
-		for (int j = 0; j < num_l; j++)
-			if (rand()%1024 < prob)
-				edge[i].insert(j);
+		// int prob = atoi(argv[3]);
+		// edge[i].clear();
+		// for (int j = 0; j < num_l; j++)
+		// 	if (rand()%1024 < prob)
+		// 		edge[i].insert(j);
 		// random gen //
 		node_length[i] = edge[i].size();
 		num_edges += node_length[i];

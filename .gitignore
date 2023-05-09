@@ -9,3 +9,5 @@ utils/*.pl
 
 # ignore some tools by cpp
 utils/*.out
+
+/result
