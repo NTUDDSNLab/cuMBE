@@ -409,7 +409,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             // foreach v ∈ Q
                     // WARNING // *Q_lp_cur // WARNING //
             for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
-
+                
                 if (Q_rm[i] < lvl) {
                     __syncwarp();
                     continue;
