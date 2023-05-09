@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
     cudaGetDevice(&device);
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, device);
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSM, CUDA_MBE, numThreads, 0);
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSM, CUDA_MBE_82, numThreads, 0);
     int numBlocks_max = deviceProp.multiProcessorCount * numBlocksPerSM;
     int numBlocks = NUM_BLKS > numBlocks_max ? numBlocks_max : \
                     NUM_BLKS == 0 ? 1 : NUM_BLKS < 0 ? 0 : NUM_BLKS;
@@ -122,7 +122,7 @@ int main(int argc, char* argv[])
 
 #ifdef DEBUG
     if (algo == "GPU") {
-        cout << "\33[2J\33[1;1H]";
+        cout << "\33[2J\33[1;1H";
     }
 #endif /* DEBUG */
     cout << "date/time: "<< ctime(&tmNow);
