@@ -144,9 +144,8 @@ int main(int argc, char* argv[])
         maximal_bic_enum(NUM_L, NUM_R, NUM_EDGES, node, edge, u2L, L, R, P, Q, x, L_lp, R_lp, P_lp, Q_lp);
     else if (algo == "GPU_1B")
         stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE, num_blocks_MBE, block_size, kernelArgs_MBE);
-    else if (algo == "GPU") {
+    else if (algo == "GPU")
         stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
-    }
     
     cudaDeviceSynchronize();
     cudaEventRecord(stop);
