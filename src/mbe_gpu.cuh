@@ -4,19 +4,21 @@ __device__ int P_ptr;
 
 __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, int *edge,
                             int *g_u2L, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
-                            int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp, int *ori_P) {
+                            int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
+                            int *g_L_buf, int *ori_P) {
 
-    int *u2L  = g_u2L  + blockIdx.x * (*NUM_L);
-    int *L    = g_L    + blockIdx.x * (*NUM_L);
-    int *R    = g_R    + blockIdx.x * (*NUM_R);
-    int *P    = g_P    + blockIdx.x * (*NUM_R);
-    int *Q    = g_Q    + blockIdx.x * (*NUM_R);
-    int *x    = g_x    + blockIdx.x * (*NUM_R);
-    int *L_lp = g_L_lp + blockIdx.x * (*NUM_R);
-    int *R_lp = g_R_lp + blockIdx.x * (*NUM_R);
-    int *P_lp = g_P_lp + blockIdx.x * (*NUM_R);
-    int *Q_lp = g_Q_lp + blockIdx.x * (*NUM_R);
-    int *Q_rm = g_Q_rm + blockIdx.x * (*NUM_R);
+    int *u2L   = g_u2L   + blockIdx.x * (*NUM_L);
+    int *L     = g_L     + blockIdx.x * (*NUM_L);
+    int *R     = g_R     + blockIdx.x * (*NUM_R);
+    int *P     = g_P     + blockIdx.x * (*NUM_R);
+    int *Q     = g_Q     + blockIdx.x * (*NUM_R);
+    int *x     = g_x     + blockIdx.x * (*NUM_R);
+    int *L_lp  = g_L_lp  + blockIdx.x * (*NUM_R);
+    int *R_lp  = g_R_lp  + blockIdx.x * (*NUM_R);
+    int *P_lp  = g_P_lp  + blockIdx.x * (*NUM_R);
+    int *Q_lp  = g_Q_lp  + blockIdx.x * (*NUM_R);
+    int *Q_rm  = g_Q_rm  + blockIdx.x * (*NUM_R);
+    int *L_buf = g_L_buf + blockIdx.x * (*NUM_L);
     grid_group grid = this_grid();
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int num_total_thds = gridDim.x * blockDim.x;
@@ -127,6 +129,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                 // P' ← ∅; Q' ← ∅;
                 *P_lp_nxt = 0; *Q_lp_nxt = *Q_lp_cur;
                 is_maximal = true;
+
+                // |L'|
+                *L_lp_nxt = 0;
             }
             
             __syncthreads();
@@ -135,9 +140,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
             if (*P_lp_cur < 0) break;
 
-            // |L'|
-            for (int l = threadIdx.x; l < *NUM_L; l += blockDim.x)
-                L[l] = L[l] > lvl ? lvl : L[l];
+            // for (int l = threadIdx.x; l < *NUM_L; l += blockDim.x)
+            //     L[l] = L[l] > lvl ? lvl : L[l];
 
             __syncthreads();
 
@@ -145,12 +149,27 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             
             // L' <--- {u ∈ L | (u, x) ∈ E(G)};
             for (int eid = node[*x_cur].start + threadIdx.x, eid_end = node[*x_cur].start + node[*x_cur].length; eid < eid_end; eid += blockDim.x) {
-                int l = edge[eid];
-                if (L[l] == lvl) {
-                    L[l]++;
-                    atomicAdd(&num_L_nxt, 1);
-                }
+                int u = edge[eid];
+                int l = u2L[u];
+                if (l < *L_lp_cur)
+                    L_buf[atomicAdd(&num_L_nxt, 1)] = u;
             }
+
+            __syncthreads();
+
+            if (!threadIdx.x)
+                for (int i = 0; i < num_L_nxt; i++) {
+                    int u = L_buf[i];
+                    int l = u2L[u];
+                    // swap(L[(*L_lp_nxt)++], L[l]);
+                    int L_tmp = L[*L_lp_nxt];
+                    L[(*L_lp_nxt)++] = L[l];
+                    L[l] = L_tmp;
+                    // swap(u2L[L[l]], u2L[u]);
+                    int u2L_tmp = u2L[L[l]];
+                    u2L[L[l]] = u2L[u];
+                    u2L[u] = u2L_tmp;
+                }
 
             __syncthreads();
 
@@ -176,8 +195,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
                 for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                    int l = edge[eid];
-                    if (L[l] > lvl)
+                    int u = edge[eid];
+                    int l = u2L[u];
+                    if (l < *L_lp_nxt)
                         atomicAdd(&(num_N_v[wid]), 1);
                 }
 
@@ -225,8 +245,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
                         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
                         for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                            int l = edge[eid];
-                            if (L[l] > lvl)
+                            int u = edge[eid];
+                            int l = u2L[u];
+                            if (l < *L_lp_nxt)
                                 atomicAdd(&(num_N_v[wid]), 1);
                         }
 
@@ -336,9 +357,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
             // 5/8 revised start //
             
-            if (!threadIdx.x) {
+            // find v in P to minimize num_L_nxt
+            if (!threadIdx.x)
                 num_L_nxt = INF;
-            }
 
             __syncthreads();
 
@@ -354,8 +375,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
                 for (int eid = node[v].start + threadIdx.x, eid_end = node[v].start + node[v].length; eid < eid_end; eid += blockDim.x) {
-                    int l = edge[eid];
-                    if (L[l] >= lvl && atomicAdd(&(num_N_v[0]), 1) == num_L_nxt)
+                    int u = edge[eid];
+                    int l = u2L[u];
+                    if (l < *L_lp_cur && atomicAdd(&(num_N_v[0]), 1) == num_L_nxt)
                         break;
                 }
 
@@ -392,15 +414,17 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                 // P' ← ∅; Q' ← ∅;
                 *P_lp_nxt = 0; *Q_lp_nxt = *Q_lp_cur;
                 is_maximal = true;
+                
+                // |L'|
+                *L_lp_nxt = 0;
             }
             
             __syncthreads();
 
             CLK(1);
 
-            // |L'|
-            for (int l = threadIdx.x; l < *NUM_L; l += blockDim.x)
-                L[l] = L[l] > lvl ? lvl : L[l];
+            // for (int l = threadIdx.x; l < *NUM_L; l += blockDim.x)
+            //     L[l] = L[l] > lvl ? lvl : L[l];
 
             __syncthreads();
 
@@ -408,12 +432,27 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             
             // L' <--- {u ∈ L | (u, x) ∈ E(G)};
             for (int eid = node[*x_cur].start + threadIdx.x, eid_end = node[*x_cur].start + node[*x_cur].length; eid < eid_end; eid += blockDim.x) {
-                int l = edge[eid];
-                if (L[l] == lvl) {
-                    L[l]++;
-                    atomicAdd(&num_L_nxt, 1);
-                }
+                int u = edge[eid];
+                int l = u2L[u];
+                if (l < *L_lp_cur)
+                    L_buf[atomicAdd(&num_L_nxt, 1)] = u;
             }
+
+            __syncthreads();
+
+            if (!threadIdx.x)
+                for (int i = 0; i < num_L_nxt; i++) {
+                    int u = L_buf[i];
+                    int l = u2L[u];
+                    // swap(L[(*L_lp_nxt)++], L[l]);
+                    int L_tmp = L[*L_lp_nxt];
+                    L[(*L_lp_nxt)++] = L[l];
+                    L[l] = L_tmp;
+                    // swap(u2L[L[l]], u2L[u]);
+                    int u2L_tmp = u2L[L[l]];
+                    u2L[L[l]] = u2L[u];
+                    u2L[u] = u2L_tmp;
+                }
 
             __syncthreads();
 
@@ -437,8 +476,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
                 for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                    int l = edge[eid];
-                    if (L[l] > lvl)
+                    int u = edge[eid];
+                    int l = u2L[u];
+                    if (l < *L_lp_nxt)
                         atomicAdd(&(num_N_v[wid]), 1);
                 }
 
@@ -486,8 +526,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
                         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
                         for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                            int l = edge[eid];
-                            if (L[l] > lvl)
+                            int u = edge[eid];
+                            int l = u2L[u];
+                            if (l < *L_lp_nxt)
                                 atomicAdd(&(num_N_v[wid]), 1);
                         }
 
