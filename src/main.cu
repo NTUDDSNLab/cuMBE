@@ -131,6 +131,9 @@ int main(int argc, char* argv[])
     cout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << "\n";
     cout << "grid_size: " << numBlocks << ", block_size: " << numThreads << "\n";
 
+    // cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
+    // cudaDeviceSynchronize();
+
     int stat;
     float time;
     cudaEvent_t start, stop;
