@@ -27,7 +27,7 @@ namespace cg = cooperative_groups;
 #define CPU_PRINT_AT(LINE) printf("\33[%d;1H", (numBlocks + (10-1)) / 10 + LINE);
 #define GPU_PRINT_AT(LINE) printf("\33[%d;1H", (gridDim.x + (10-1)) / 10 + LINE);
 
-#define NUM_CLK 8
+#define NUM_CLK 10
 #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
 #define CLK_CPU(IDX) clk[IDX] += clock() - clk_; clk_ = clock();
 // #define CLK(IDX) ;

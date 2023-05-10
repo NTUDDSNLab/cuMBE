@@ -80,25 +80,38 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
 
             CLK(0);
 
-            if (!threadIdx.x) {
-                // atomically get a new 1-level sub-tree
-                // Q <--- Q ∪ {x before P_ptr};
-                //// for (int i = *P_lp_cur, i_end = *P_lp_cur -= gridDim.x; --i > i_end; ) {
-                ////     if (i < *NUM_R) {
-                ////         Q_rm[*Q_lp_cur] = INF;
-                ////         Q[(*Q_lp_cur)++] = i;
-                ////     }
-                //// }
-                for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; ) {
-                    if (i >= 0) {
-                        Q_rm[*Q_lp_cur] = INF;
-                        Q[(*Q_lp_cur)++] = ori_P[i];
-                    }
-                }
+            // atomically get a new 1-level sub-tree
 
-                // reset P to ordered
-                for (int i = 0; i < *NUM_R; i++)
-                    P[i] = ori_P[i];
+            if (!threadIdx.x) {
+                *P_lp_nxt = *P_lp_cur;
+                *P_lp_cur = atomicAdd(&P_ptr, -1);
+                *P_lp_cur = *P_lp_cur >= -1 ? *P_lp_cur : -1;
+            }
+            
+            __syncthreads();
+
+            for (int i = *P_lp_cur + threadIdx.x + 1; i < *P_lp_nxt; i += blockDim.x) {
+                int Q_lp_enq = atomicAdd(Q_lp_cur, 1);
+                Q_rm[Q_lp_enq] = INF;
+                Q[Q_lp_enq] = ori_P[i];
+            }
+
+            // for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; ) {
+            //     if (i >= 0) {
+            //         Q_rm[*Q_lp_cur] = INF;
+            //         Q[(*Q_lp_cur)++] = ori_P[i];
+            //     }
+            // }
+
+            // reset P to ordered
+            for (int i = threadIdx.x; i < *P_lp_cur; i += blockDim.x)
+                P[i] = ori_P[i];
+            
+            __syncthreads();
+
+            CLK(8);
+
+            if (!threadIdx.x) {
 
                 // Select x from P;
                 // P <--- P \ {x before P_ptr and x_cur};
@@ -409,7 +422,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             // foreach v ∈ Q
                     // WARNING // *Q_lp_cur // WARNING //
             for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
-                
+
                 if (Q_rm[i] < lvl) {
                     __syncwarp();
                     continue;
@@ -601,7 +614,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
     grid.sync();
     if (!tid) {
         g_clk_scale = 0;
-        for (int num = total_bic >> 8; num >>= 1; g_clk_scale += 2) ;
+        for (int num = total_bic >> 7; num >>= 1; g_clk_scale += 2) ;
     }
     grid.sync();
     if (!threadIdx.x)
