@@ -2,7 +2,8 @@ __device__ int g_clk[NUM_CLK], g_clk_scale;
 __device__ int total_bic;
 __device__ int P_ptr;
 
-__global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, int *edge,
+__global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
+                            Node *node_l, int *edge_l, Node *node_r, int *edge_r,
                             int *g_u2L, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
                             int *g_L_buf, int *ori_P) {
@@ -148,8 +149,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             CLK(2);
             
             // L' <--- {u ∈ L | (u, x) ∈ E(G)};
-            for (int eid = node[*x_cur].start + threadIdx.x, eid_end = node[*x_cur].start + node[*x_cur].length; eid < eid_end; eid += blockDim.x) {
-                int u = edge[eid];
+            for (int eid = node_r[*x_cur].start + threadIdx.x, eid_end = node_r[*x_cur].start + node_r[*x_cur].length; eid < eid_end; eid += blockDim.x) {
+                int u = edge_r[eid];
                 int l = u2L[u];
                 if (l < *L_lp_cur)
                     L_buf[atomicAdd(&num_L_nxt, 1)] = u;
@@ -194,8 +195,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                 __syncwarp();
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                    int u = edge[eid];
+                for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                    int u = edge_r[eid];
                     int l = u2L[u];
                     if (l < *L_lp_nxt)
                         atomicAdd(&(num_N_v[wid]), 1);
@@ -244,8 +245,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                         __syncwarp();
 
                         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                        for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                            int u = edge[eid];
+                        for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                            int u = edge_r[eid];
                             int l = u2L[u];
                             if (l < *L_lp_nxt)
                                 atomicAdd(&(num_N_v[wid]), 1);
@@ -270,7 +271,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                             if (i == *P_lp_cur) break;
                             int v = P[i];
                             // else if |N[v]| > 0 then
-                            if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0/* && node[v].length >= node[*x_cur].length*//* && (node[v].length > node[*x_cur].length || (node[v].length == node[*x_cur].length && v > *x_cur))*/) {
+                            if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0/* && node_r[v].length >= node_r[*x_cur].length*//* && (node_r[v].length > node_r[*x_cur].length || (node_r[v].length == node_r[*x_cur].length && v > *x_cur))*/) {
                                 // P' ← P' ∪ {v};
                                 int P_tmp = P[*P_lp_nxt];
                                 P[(*P_lp_nxt)++] = P[i];
@@ -374,8 +375,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                 __syncthreads();
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                for (int eid = node[v].start + threadIdx.x, eid_end = node[v].start + node[v].length; eid < eid_end; eid += blockDim.x) {
-                    int u = edge[eid];
+                for (int eid = node_r[v].start + threadIdx.x, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += blockDim.x) {
+                    int u = edge_r[eid];
                     int l = u2L[u];
                     if (l < *L_lp_cur && atomicAdd(&(num_N_v[0]), 1) == num_L_nxt)
                         break;
@@ -431,8 +432,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
             CLK(2);
             
             // L' <--- {u ∈ L | (u, x) ∈ E(G)};
-            for (int eid = node[*x_cur].start + threadIdx.x, eid_end = node[*x_cur].start + node[*x_cur].length; eid < eid_end; eid += blockDim.x) {
-                int u = edge[eid];
+            for (int eid = node_r[*x_cur].start + threadIdx.x, eid_end = node_r[*x_cur].start + node_r[*x_cur].length; eid < eid_end; eid += blockDim.x) {
+                int u = edge_r[eid];
                 int l = u2L[u];
                 if (l < *L_lp_cur)
                     L_buf[atomicAdd(&num_L_nxt, 1)] = u;
@@ -475,8 +476,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                 __syncwarp();
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                    int u = edge[eid];
+                for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                    int u = edge_r[eid];
                     int l = u2L[u];
                     if (l < *L_lp_nxt)
                         atomicAdd(&(num_N_v[wid]), 1);
@@ -525,8 +526,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, 
                         __syncwarp();
 
                         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                        for (int eid = node[v].start + lid, eid_end = node[v].start + node[v].length; eid < eid_end; eid += WARP_SIZE) {
-                            int u = edge[eid];
+                        for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                            int u = edge_r[eid];
                             int l = u2L[u];
                             if (l < *L_lp_nxt)
                                 atomicAdd(&(num_N_v[wid]), 1);

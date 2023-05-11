@@ -55,7 +55,7 @@ bool cmp(pair<int, int>& a, pair<int, int>& b) { return a.second > b.second; }
 void my_memset_sort(int *SA, int val_start, int val_end, Node *node) {
     vector<pair<int, int>> res;
     for (int i = val_start; i < val_end; i++)
-        res.push_back({i, node[i].length});
+        res.push_back({i, node[i - val_start].length});
     sort(res.begin(), res.end(), cmp);
     for (int i = 0; i < res.size(); i++)
         SA[i] = res[i].first;

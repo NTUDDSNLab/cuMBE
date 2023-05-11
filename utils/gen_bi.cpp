@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
 	vector<int> node_length;
 	vector< unordered_set<int> > edge;
 	
-	for (int node_r, node_l, i_edge = 0, progress_reporter = -1, progress_clk = -1; /*fin >> node_r >> node_l*/fin >> node_l >> node_r; i_edge++) {
+	for (int node_r, node_l, i_edge = 0, progress_reporter = -1, progress_clk = -1; fin >> node_r >> node_l/*fin >> node_l >> node_r*/; i_edge++) {
 		for (int i = 0; i < num_passed_words_per_edge; i++) fin >> _;
 		if (row_id.insert(pair<int, int>(node_r, num_r)).second) {
 			edge.resize(++num_r);

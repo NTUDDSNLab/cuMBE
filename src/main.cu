@@ -1,16 +1,17 @@
 #include <src/header.cuh>
+#include <src/transpose.cuh>
 #include <src/mbe_cpu.cuh>
 #include <src/mbe_cpu_lp.cuh>
 #include <src/mbe_gpu_1b.cuh>
 #include <src/mbe_gpu.cuh>
 
-void maximal_bic_enum_MineLMBC(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node, int *edge,
+void maximal_bic_enum_MineLMBC(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node_r, int *edge_r,
                                unordered_set<int> X, unordered_set<int> gammaX, set<int> tailX) {
     unordered_set<int> gammaXprime;
     for (const auto &v: tailX) {
         gammaXprime.clear();
-        for (int eid = node[v].start, eid_end = eid + node[v].length; eid < eid_end; eid++) {
-            int u = edge[eid];
+        for (int eid = node_r[v].start, eid_end = eid + node_r[v].length; eid < eid_end; eid++) {
+            int u = edge_r[eid];
             if (gammaX.find(u) != gammaX.end())
                 gammaXprime.insert(u);
         }
@@ -26,8 +27,8 @@ void maximal_bic_enum_MineLMBC(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *nod
         if (X.size() + tailX.size() + 1 > MIN_SH) {
             for (const auto &v_: tailX) {
                 int num_N_v = 0;
-                for (int eid = node[v_].start, eid_end = eid + node[v_].length; eid < eid_end; eid++) {
-                    int u = edge[eid];
+                for (int eid = node_r[v_].start, eid_end = eid + node_r[v_].length; eid < eid_end; eid++) {
+                    int u = edge_r[eid];
                     if (gammaXprime.find(u) != gammaXprime.end())
                         ++num_N_v;
                 }
@@ -45,8 +46,8 @@ int main(int argc, char* argv[])
     string dataset = argv[1];
     dataset = dataset.substr(dataset.rfind('/')+1);
 
-    Node *node;
-	int *edge;
+    Node *node_l, *node_r;
+	int *edge_l, *edge_r, *tmp;
     int *NUM_L, *NUM_R, *NUM_EDGES, _;
     // MBE
     int *u2L, *L, *R, *P, *Q;
@@ -63,10 +64,13 @@ int main(int argc, char* argv[])
     ifstream fin;
     fin.open(argv[1]);
     fin >> *NUM_R >> *NUM_L >> *NUM_EDGES;
-    cudaMallocManaged(&node, sizeof(Node)*(*NUM_R    ));
-    cudaMallocManaged(&edge, sizeof(int )*(*NUM_EDGES));
-    for (int i = 0; i < *NUM_R    ; i++) fin >> node[i].start >> node[i].length;
-    for (int i = 0; i < *NUM_EDGES; i++) fin >> edge[i] >> _;
+    cudaMallocManaged(&tmp   , sizeof(int )*(*NUM_L    ));
+    cudaMallocManaged(&node_l, sizeof(Node)*(*NUM_L    ));
+    cudaMallocManaged(&edge_l, sizeof(int )*(*NUM_EDGES));
+    cudaMallocManaged(&node_r, sizeof(Node)*(*NUM_R    ));
+    cudaMallocManaged(&edge_r, sizeof(int )*(*NUM_EDGES));
+    for (int i = 0; i < *NUM_R    ; i++) fin >> node_r[i].start >> node_r[i].length;
+    for (int i = 0; i < *NUM_EDGES; i++) fin >> edge_r[i] >> _;
     fin.close();
 
     int numBlocksPerSM;
@@ -79,9 +83,18 @@ int main(int argc, char* argv[])
     int numBlocks_max = deviceProp.multiProcessorCount * numBlocksPerSM;
     int numBlocks = NUM_BLKS > numBlocks_max ? numBlocks_max : \
                     NUM_BLKS == 0 ? 1 : NUM_BLKS < 0 ? 0 : NUM_BLKS;
+    dim3 num_blocks_TRANSPOSE(numBlocks, 1, 1);
     dim3 num_blocks_MBE(1, 1, 1);
     dim3 num_blocks_MBE_82(numBlocks, 1, 1);
     dim3 block_size(numThreads, 1, 1);
+
+    bool swap_RL = *NUM_R > *NUM_L;
+    if (swap_RL) {
+        // cout << "RETURN\n"; return 0;
+        swap(*NUM_L, *NUM_R);
+        swap(node_l, node_r);
+        swap(edge_l, edge_r);
+    }
 
     // MBE
     cudaMallocManaged(&u2L  , sizeof(int)*(*NUM_L)); my_memset_order(u2L, 0, *NUM_L);
@@ -109,10 +122,12 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&g_Q_lp , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )  g_Q_lp[i] =  Q_lp[i % (*NUM_R)];
     cudaMallocManaged(&g_Q_rm , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )  g_Q_rm[i] =  Q_rm[i % (*NUM_R)];
     cudaMallocManaged(&g_L_buf, sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; ) g_L_buf[i] = L_buf[i % (*NUM_L)];
-    cudaMallocManaged(&ori_P, sizeof(int)*(*NUM_R)); my_memset_sort(ori_P, 0, *NUM_R, node);
+    cudaMallocManaged(&ori_P, sizeof(int)*(*NUM_R));
 
-    void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node, &edge, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
-    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node, &edge, &g_u2L, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &ori_P};
+    void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
+    void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
+    void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_r, &edge_r, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
+    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r, &g_u2L, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &ori_P};
 
     string algo;
     switch (NUM_BLKS) {
@@ -134,8 +149,11 @@ int main(int argc, char* argv[])
     cout << "grid_size: " << numBlocks << ", block_size: " << numThreads << "\n";
 
     // cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
-    // cudaDeviceSynchronize();
+    cudaLaunchCooperativeKernel((void*)CUDA_TRANSPOSE, num_blocks_TRANSPOSE, block_size, swap_RL ? kernelArgs_CSC2CSR : kernelArgs_CSR2CSC);
+    cudaDeviceSynchronize();
 
+    my_memset_sort(ori_P, 0, *NUM_R, node_r);
+    
     int stat;
     float time;
     cudaEvent_t start, stop;
@@ -144,9 +162,9 @@ int main(int argc, char* argv[])
     cudaEventRecord(start);
 
     if (algo == "CPU")
-        maximal_bic_enum_set(NUM_L, NUM_R, NUM_EDGES, node, edge, u2L, L, R, P, Q, x, L_lp, R_lp, P_lp, Q_lp);
+        maximal_bic_enum_set(NUM_L, NUM_R, NUM_EDGES, node_r, edge_r, u2L, L, R, P, Q, x, L_lp, R_lp, P_lp, Q_lp);
     else if (algo == "CPU_lp")
-        maximal_bic_enum(NUM_L, NUM_R, NUM_EDGES, node, edge, u2L, L, R, P, Q, x, L_lp, R_lp, P_lp, Q_lp);
+        maximal_bic_enum(NUM_L, NUM_R, NUM_EDGES, node_r, edge_r, u2L, L, R, P, Q, x, L_lp, R_lp, P_lp, Q_lp);
     else if (algo == "GPU_1B")
         stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE, num_blocks_MBE, block_size, kernelArgs_MBE);
     else if (algo == "GPU")
@@ -157,11 +175,14 @@ int main(int argc, char* argv[])
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
 
-    // cout << "status: " << stat << "\n";
+    // cout << "status: " << stat << ", ";
     cout << "runtime (s): " << time/1000 << "\n";
 
-    cudaFree(node);
-    cudaFree(edge);
+    cudaFree(tmp);
+    cudaFree(node_l);
+    cudaFree(edge_l);
+    cudaFree(node_r);
+    cudaFree(edge_r);
     cudaFree(NUM_L);
     cudaFree(NUM_R);
     cudaFree(NUM_EDGES);
