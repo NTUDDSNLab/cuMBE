@@ -14,16 +14,19 @@ using namespace std::chrono;
 using namespace cooperative_groups;
 namespace cg = cooperative_groups;
 
-#define INF  1073741824
-#define ONE  1
-#define ZERO 0
+#define INF 1073741824
+#define ONE          1
+#define ZERO         0
 
-#define MIN_SH 1
+#define MIN_SH     1
 #define WARP_SIZE 32
 #define NUM_THDS 256
 #define NUM_BLKS atoi(argv[2])
 
-#define LOG_BLK_ID 1
+#define WORDS_1ROW 16
+#define WORD_WIDTH  8
+#define LOG_BLK_ID  1
+
 #define NUM_CLK 10
 #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
 #define CLK_CPU(IDX) clk[IDX] += clock() - clk_; clk_ = clock();

@@ -90,7 +90,6 @@ int main(int argc, char* argv[])
 
     bool swap_RL = *NUM_R > *NUM_L;
     if (swap_RL) {
-        // cout << "RETURN\n"; return 0;
         swap(*NUM_L, *NUM_R);
         swap(node_l, node_r);
         swap(edge_l, edge_r);
@@ -177,6 +176,7 @@ int main(int argc, char* argv[])
 
     // cout << "status: " << stat << ", ";
     cout << "runtime (s): " << time/1000 << "\n";
+    cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 10 << ";1H";
 
     cudaFree(tmp);
     cudaFree(node_l);

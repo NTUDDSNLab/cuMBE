@@ -88,10 +88,12 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             if (!threadIdx.x) {
                 *P_lp_nxt = *P_lp_cur;
                 *P_lp_cur = atomicAdd(&P_ptr, -1);
-                *P_lp_cur = *P_lp_cur >= -1 ? *P_lp_cur : -1;
+                *P_lp_cur = *P_lp_cur >= 0 ? *P_lp_cur : -1;
             }
             
             __syncthreads();
+
+            if (*P_lp_cur == -1) break;
 
             for (int i = *P_lp_cur + threadIdx.x + 1; i < *P_lp_nxt; i += blockDim.x) {
                 int Q_lp_enq = atomicAdd(Q_lp_cur, 1);
@@ -138,8 +140,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             __syncthreads();
 
             CLK(1);
-
-            if (*P_lp_cur < 0) break;
 
             // for (int l = threadIdx.x; l < *NUM_L; l += blockDim.x)
             //     L[l] = L[l] > lvl ? lvl : L[l];
@@ -311,7 +311,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     //// maximal_bicliques.push_back(new_maximal_bicliques);
 
                     // if (++num_maximal_bicliques > 0)
-                    printf("\33[%d;%dH%d\n", blockIdx.x / 10 + 9, (blockIdx.x % 10) * 10 + 1, ++num_maximal_bicliques);
+                    printf("\33[%d;%dH%d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, ++num_maximal_bicliques);
 #else  /* DEBUG */
                     ++num_maximal_bicliques;
 #endif /* DEBUG */
@@ -592,7 +592,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     //// maximal_bicliques.push_back(new_maximal_bicliques);
 
                     // if (++num_maximal_bicliques > 0)
-                    printf("\33[%d;%dH%d\n", blockIdx.x / 10 + 9, (blockIdx.x % 10) * 10 + 1, ++num_maximal_bicliques);
+                    printf("\33[%d;%dH%d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, ++num_maximal_bicliques);
 #else  /* DEBUG */
                     ++num_maximal_bicliques;
 #endif /* DEBUG */
