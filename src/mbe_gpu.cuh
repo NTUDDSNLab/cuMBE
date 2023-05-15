@@ -6,20 +6,21 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             Node *node_l, int *edge_l, Node *node_r, int *edge_r,
                             int *g_u2L, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
-                            int *g_L_buf, int *ori_P) {
+                            int *g_L_buf, int *g_num_N_u, int *ori_P) {
 
-    int *u2L   = g_u2L   + blockIdx.x * (*NUM_L);
-    int *L     = g_L     + blockIdx.x * (*NUM_L);
-    int *R     = g_R     + blockIdx.x * (*NUM_R);
-    int *P     = g_P     + blockIdx.x * (*NUM_R);
-    int *Q     = g_Q     + blockIdx.x * (*NUM_R);
-    int *x     = g_x     + blockIdx.x * (*NUM_R);
-    int *L_lp  = g_L_lp  + blockIdx.x * (*NUM_R);
-    int *R_lp  = g_R_lp  + blockIdx.x * (*NUM_R);
-    int *P_lp  = g_P_lp  + blockIdx.x * (*NUM_R);
-    int *Q_lp  = g_Q_lp  + blockIdx.x * (*NUM_R);
-    int *Q_rm  = g_Q_rm  + blockIdx.x * (*NUM_R);
-    int *L_buf = g_L_buf + blockIdx.x * (*NUM_L);
+    int *u2L     = g_u2L     + blockIdx.x * (*NUM_L);
+    int *L       = g_L       + blockIdx.x * (*NUM_L);
+    int *R       = g_R       + blockIdx.x * (*NUM_R);
+    int *P       = g_P       + blockIdx.x * (*NUM_R);
+    int *Q       = g_Q       + blockIdx.x * (*NUM_R);
+    int *x       = g_x       + blockIdx.x * (*NUM_R);
+    int *L_lp    = g_L_lp    + blockIdx.x * (*NUM_R);
+    int *R_lp    = g_R_lp    + blockIdx.x * (*NUM_R);
+    int *P_lp    = g_P_lp    + blockIdx.x * (*NUM_R);
+    int *Q_lp    = g_Q_lp    + blockIdx.x * (*NUM_R);
+    int *Q_rm    = g_Q_rm    + blockIdx.x * (*NUM_R);
+    int *L_buf   = g_L_buf   + blockIdx.x * (*NUM_L);
+    int *num_N_u = g_num_N_u + blockIdx.x * (*NUM_R);
     grid_group grid = this_grid();
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int num_total_thds = gridDim.x * blockDim.x;
@@ -35,7 +36,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     __shared__ int *Q_lp_cur, *Q_lp_nxt;
     __shared__ bool is_recursive;
     __shared__ bool is_maximal;
-    __shared__ int num_L_nxt, num_N_v[NUM_THDS >> 5];
+    __shared__ int num_L_nxt, num_N_v[NUM_THDS >> 5], num_N_L;
 
     __shared__ long long clk[NUM_CLK], clk_;
     if (!threadIdx.x) {
@@ -135,6 +136,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
                 // |L'|
                 *L_lp_nxt = 0;
+
+                // scan from L
+                num_N_L = 0;
             }
             
             __syncthreads();
