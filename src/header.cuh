@@ -18,9 +18,9 @@ namespace cg = cooperative_groups;
 #define ONE          1
 #define ZERO         0
 
-#define MIN_SH     1
-#define WARP_SIZE 32
-#define NUM_THDS 256
+#define MIN_SH      1
+#define WARP_SIZE  32
+#define NUM_THDS  256
 #define NUM_BLKS atoi(argv[2])
 
 #define WORDS_1ROW 16

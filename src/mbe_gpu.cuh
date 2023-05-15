@@ -311,7 +311,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     //// maximal_bicliques.push_back(new_maximal_bicliques);
 
                     // if (++num_maximal_bicliques > 0)
-                    printf("\33[%d;%dH%d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, ++num_maximal_bicliques);
+                    printf("\33[%d;%dH%*d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, WORD_WIDTH, ++num_maximal_bicliques);
 #else  /* DEBUG */
                     ++num_maximal_bicliques;
 #endif /* DEBUG */
@@ -592,7 +592,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     //// maximal_bicliques.push_back(new_maximal_bicliques);
 
                     // if (++num_maximal_bicliques > 0)
-                    printf("\33[%d;%dH%d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, ++num_maximal_bicliques);
+                    printf("\33[%d;%dH%*d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, WORD_WIDTH, ++num_maximal_bicliques);
 #else  /* DEBUG */
                     ++num_maximal_bicliques;
 #endif /* DEBUG */
