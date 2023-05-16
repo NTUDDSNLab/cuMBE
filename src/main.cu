@@ -50,11 +50,11 @@ int main(int argc, char* argv[])
 	int *edge_l, *edge_r, *tmp;
     int *NUM_L, *NUM_R, *NUM_EDGES, _;
     // MBE
-    int *u2L, *L, *R, *P, *Q;
+    int *u2L, *v2Q, *L, *R, *P, *Q;
     int *x, *L_lp, *R_lp, *P_lp, *Q_lp;
     int *Q_rm, *L_buf, *num_N_u;
     // MBE_82
-    int *g_u2L, *g_L, *g_R, *g_P, *g_Q;
+    int *g_u2L, *g_v2Q, *g_L, *g_R, *g_P, *g_Q;
     int *g_x, *g_L_lp, *g_R_lp, *g_P_lp, *g_Q_lp;
     int *g_Q_rm, *g_L_buf, *g_num_N_u, *ori_P;
     cudaMallocManaged(&NUM_EDGES, sizeof(int));
@@ -97,6 +97,7 @@ int main(int argc, char* argv[])
 
     // MBE
     cudaMallocManaged(&u2L    , sizeof(int)*(*NUM_L)); my_memset_order(u2L, 0, *NUM_L);
+    cudaMallocManaged(&v2Q    , sizeof(int)*(*NUM_R)); my_memset_order(v2Q, 0, *NUM_R);
     cudaMallocManaged(&L      , sizeof(int)*(*NUM_L)); my_memset_order(L  , 0, *NUM_L);
     cudaMallocManaged(&R      , sizeof(int)*(*NUM_R)); my_memset_order(R  , 0, *NUM_R);
     cudaMallocManaged(&P      , sizeof(int)*(*NUM_R)); my_memset_order(P  , 0, *NUM_R);
@@ -111,6 +112,7 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&num_N_u, sizeof(int)*(*NUM_R)); my_memset(num_N_u,   0, *NUM_R);
     // MBE_82
     cudaMallocManaged(&g_u2L    , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )     g_u2L[i] =     u2L[i % (*NUM_L)];
+    cudaMallocManaged(&g_v2Q    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_v2Q[i] =     v2Q[i % (*NUM_R)];
     cudaMallocManaged(&g_L      , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )       g_L[i] =       L[i % (*NUM_L)];
     cudaMallocManaged(&g_R      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_R[i] =       R[i % (*NUM_R)];
     cudaMallocManaged(&g_P      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_P[i] =       P[i % (*NUM_R)];
@@ -128,7 +130,7 @@ int main(int argc, char* argv[])
     void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
     void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_r, &edge_r, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
-    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r, &g_u2L, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &ori_P};
+    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r, &g_u2L, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &ori_P};
 
     string algo;
     switch (NUM_BLKS) {
@@ -178,7 +180,10 @@ int main(int argc, char* argv[])
 
     // cout << "status: " << stat << ", ";
     cout << "runtime (s): " << time/1000 << "\n";
-    cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 10 << ";1H";
+#ifdef DEBUG
+    if (algo == "GPU")
+        cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 10 << ";1H";
+#endif /* DEBUG */
 
     cudaFree(tmp);
     cudaFree(node_l);
@@ -190,6 +195,7 @@ int main(int argc, char* argv[])
     cudaFree(NUM_EDGES);
     // MBE
     cudaFree(u2L);
+    cudaFree(v2Q);
     cudaFree(L);
     cudaFree(R);
     cudaFree(P);
@@ -202,6 +208,7 @@ int main(int argc, char* argv[])
     cudaFree(L_buf);
     // MBE_82
     cudaFree(g_u2L);
+    cudaFree(g_v2Q);
     cudaFree(g_L);
     cudaFree(g_R);
     cudaFree(g_P);

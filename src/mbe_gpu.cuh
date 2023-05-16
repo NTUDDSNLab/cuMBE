@@ -4,11 +4,12 @@ __device__ int P_ptr;
 
 __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             Node *node_l, int *edge_l, Node *node_r, int *edge_r,
-                            int *g_u2L, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
+                            int *g_u2L, int *g_v2Q, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
                             int *g_L_buf, int *g_num_N_u, int *ori_P) {
 
     int *u2L     = g_u2L     + blockIdx.x * (*NUM_L);
+    int *v2Q     = g_v2Q     + blockIdx.x * (*NUM_R);
     int *L       = g_L       + blockIdx.x * (*NUM_L);
     int *R       = g_R       + blockIdx.x * (*NUM_R);
     int *P       = g_P       + blockIdx.x * (*NUM_R);
@@ -96,11 +97,25 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
             if (*P_lp_cur == -1) break;
 
-            for (int i = *P_lp_cur + threadIdx.x + 1; i < *P_lp_nxt; i += blockDim.x) {
-                int Q_lp_enq = atomicAdd(Q_lp_cur, 1);
-                Q_rm[Q_lp_enq] = INF;
-                Q[Q_lp_enq] = ori_P[i];
+            if (!threadIdx.x) {
+                for (int i = *P_lp_cur + 1; i < *P_lp_nxt; i++) {
+                    
+                    Q_rm[*Q_lp_cur] = INF;
+
+                    int v = ori_P[i];
+                    int q = v2Q[v];
+
+                    // swap Q
+                    int Q_tmp = Q[*Q_lp_cur];
+                    Q[*Q_lp_cur] = v;
+                    Q[q] = Q_tmp;
+                    // maintain v2Q
+                    v2Q[v] = (*Q_lp_cur)++;;
+                    v2Q[Q_tmp] = q;
+
+                }
             }
+            
 
             // for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; ) {
             //     if (i >= 0) {
@@ -343,9 +358,21 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
             if (!threadIdx.x) {
 
-                // Q ← Q ∪ {x};
                 Q_rm[*Q_lp_cur] = INF;
-                Q[(*Q_lp_cur)++] = *x_cur;
+
+                // Q ← Q ∪ {x};
+                int q = v2Q[*x_cur];
+
+                // swap Q
+                int Q_tmp = Q[*Q_lp_cur];
+                Q[*Q_lp_cur] = *x_cur;
+                Q[q] = Q_tmp;
+                // maintain v2Q
+                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[Q_tmp] = q;
+
+                
+
                 //// printf("\n往 右 安安");
 
             }
@@ -624,10 +651,23 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             }
 
             if (!threadIdx.x) {
+                
+                Q_rm[*Q_lp_cur] = INF;
 
                 // Q ← Q ∪ {x};
-                Q_rm[*Q_lp_cur] = INF;
-                Q[(*Q_lp_cur)++] = *x_cur;
+                int q = v2Q[*x_cur];
+
+                // swap Q
+                int Q_tmp = Q[*Q_lp_cur];
+                Q[*Q_lp_cur] = *x_cur;
+                Q[q] = Q_tmp;
+                // maintain v2Q
+                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[Q_tmp] = q;
+
+
+                
+                
                 //// printf("\n往 右 安安");
 
             }
@@ -641,7 +681,17 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             if (!is_recursive) {
                 if (lvl--) {
                     Q_rm[Q_lp[lvl]] = INF;
-                    Q[Q_lp[lvl]++] = x[lvl];
+
+                    int q = v2Q[x[lvl]];
+
+                    // swap Q
+                    int Q_tmp = Q[Q_lp[lvl]];
+                    Q[Q_lp[lvl]] = Q[q];
+                    Q[q] = Q_tmp;
+                    // maintain v2Q
+                    v2Q[x[lvl]] = Q_lp[lvl]++;
+                    v2Q[Q_tmp] = q;
+
                 }
                 //// printf("\n往 上 安安");
                 //// printf("\n往 右 安安");
