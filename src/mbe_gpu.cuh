@@ -195,57 +195,78 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
             CLK(3);
 
-            /*TODO  atomic*/
+            // foreach u ∈ L'
+            for (int i = wid; i < *L_lp_nxt; i += num_warps) {
+
+                int u = L[i];
+
+                // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                    int v = edge_l[eid];
+                    int q = v2Q[v];
+                    if (q < *Q_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                        L_buf[atomicAdd(&num_N_L, 1)] = v;
+                }
+            }
+
+            __syncthreads();
+
+            for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                int v = L_buf[i];
+                if (num_N_u[v] == num_L_nxt)
+                    is_maximal = false;
+                num_N_u[v] = 0;
+            }
 
             // foreach v ∈ Q
                     // WARNING // *Q_lp_cur // WARNING //
-            for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
+            // for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
 
-                if (Q_rm[i] < lvl) {
-                    __syncwarp();
-                    continue;
-                }
+            //     if (Q_rm[i] < lvl) {
+            //         __syncwarp();
+            //         continue;
+            //     }
 
-                int v = Q[i];
+            //     int v = Q[i];
 
-                if (!lid)
-                    num_N_v[wid] = 0; // |N[v]|
+            //     if (!lid)
+            //         num_N_v[wid] = 0; // |N[v]|
 
-                __syncwarp();
+            //     __syncwarp();
 
-                // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
-                    int u = edge_r[eid];
-                    int l = u2L[u];
-                    if (l < *L_lp_nxt)
-                        atomicAdd(&(num_N_v[wid]), 1);
-                }
+            //     // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+            //     for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+            //         int u = edge_r[eid];
+            //         int l = u2L[u];
+            //         if (l < *L_lp_nxt)
+            //             atomicAdd(&(num_N_v[wid]), 1);
+            //     }
 
-                __syncwarp();
+            //     __syncwarp();
 
-                if (!lid) {
-                    Q_rm[i] = INF;
+            //     if (!lid) {
+            //         Q_rm[i] = INF;
 
-                    // if |N[v]| = |L'| then
-                    if (num_N_v[wid] == num_L_nxt) {
-                        is_maximal = false;
-                        *Q_lp_nxt = 0;
-                    }
+            //         // if |N[v]| = |L'| then
+            //         if (num_N_v[wid] == num_L_nxt) {
+            //             is_maximal = false;
+            //             *Q_lp_nxt = 0;
+            //         }
 
-                    // else if |N[v]| > 0 then
-                    else if (num_N_v[wid] == 0)
-                        // Q' ← Q' ∪ {v};
-                        // swap(Q[(*Q_ls_nxt)++], Q[i]);
-                        Q_rm[i] = lvl;
-                }
+            //         // else if |N[v]| > 0 then
+            //         else if (num_N_v[wid] == 0)
+            //             // Q' ← Q' ∪ {v};
+            //             // swap(Q[(*Q_ls_nxt)++], Q[i]);
+            //             Q_rm[i] = lvl;
+            //     }
 
-                __syncwarp();
+            //     __syncwarp();
                 
-            }
-            
-            CLK(4);
+            // }
 
             __syncthreads();
+            
+            CLK(4);
 
             // if is_maximal = TRUE then
             if (is_maximal == true) {
@@ -449,6 +470,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 
                 // |L'|
                 *L_lp_nxt = 0;
+
+                // scan from L
+                num_N_L = 0;
             }
             
             __syncthreads();
@@ -490,55 +514,78 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
             CLK(3);
 
-            // foreach v ∈ Q
-                    // WARNING // *Q_lp_cur // WARNING //
-            for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
+            // foreach u ∈ L'
+            for (int i = wid; i < *L_lp_nxt; i += num_warps) {
 
-                if (Q_rm[i] < lvl) {
-                    __syncwarp();
-                    continue;
-                }
-
-                int v = Q[i];
-
-                if (!lid)
-                    num_N_v[wid] = 0; // |N[v]|
-
-                __syncwarp();
+                int u = L[i];
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
-                    int u = edge_r[eid];
-                    int l = u2L[u];
-                    if (l < *L_lp_nxt)
-                        atomicAdd(&(num_N_v[wid]), 1);
+                for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                    int v = edge_l[eid];
+                    int q = v2Q[v];
+                    if (q < *Q_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                        L_buf[atomicAdd(&num_N_L, 1)] = v;
                 }
-
-                __syncwarp();
-
-                if (!lid) {
-                    Q_rm[i] = INF;
-
-                    // if |N[v]| = |L'| then
-                    if (num_N_v[wid] == num_L_nxt) {
-                        is_maximal = false;
-                        *Q_lp_nxt = 0;
-                    }
-
-                    // else if |N[v]| > 0 then
-                    else if (num_N_v[wid] == 0)
-                        // Q' ← Q' ∪ {v};
-                        // swap(Q[(*Q_ls_nxt)++], Q[i]);
-                        Q_rm[i] = lvl;
-                }
-
-                __syncwarp();
-                
             }
-            
-            CLK(4);
 
             __syncthreads();
+
+            for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                int v = L_buf[i];
+                if (num_N_u[v] == num_L_nxt)
+                    is_maximal = false;
+                num_N_u[v] = 0;
+            }
+
+            // foreach v ∈ Q
+                    // WARNING // *Q_lp_cur // WARNING //
+            // for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
+
+            //     if (Q_rm[i] < lvl) {
+            //         __syncwarp();
+            //         continue;
+            //     }
+
+            //     int v = Q[i];
+
+            //     if (!lid)
+            //         num_N_v[wid] = 0; // |N[v]|
+
+            //     __syncwarp();
+
+            //     // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+            //     for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+            //         int u = edge_r[eid];
+            //         int l = u2L[u];
+            //         if (l < *L_lp_nxt)
+            //             atomicAdd(&(num_N_v[wid]), 1);
+            //     }
+
+            //     __syncwarp();
+
+            //     if (!lid) {
+            //         Q_rm[i] = INF;
+
+            //         // if |N[v]| = |L'| then
+            //         if (num_N_v[wid] == num_L_nxt) {
+            //             is_maximal = false;
+            //             *Q_lp_nxt = 0;
+            //         }
+
+            //         // else if |N[v]| > 0 then
+            //         else if (num_N_v[wid] == 0)
+            //             // Q' ← Q' ∪ {v};
+            //             // swap(Q[(*Q_ls_nxt)++], Q[i]);
+            //             Q_rm[i] = lvl;
+            //     }
+
+            //     __syncwarp();
+                
+            // }
+
+            __syncthreads();
+            
+            CLK(4);
 
             // if is_maximal = TRUE then
             if (is_maximal == true) {
