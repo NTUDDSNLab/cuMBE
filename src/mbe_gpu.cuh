@@ -212,52 +212,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 num_N_u[v] = 0;
             }
 
-            // foreach v ∈ Q
-                    // WARNING // *Q_lp_cur // WARNING //
-            // for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
-
-            //     if (Q_rm[i] < lvl) {
-            //         __syncwarp();
-            //         continue;
-            //     }
-
-            //     int v = Q[i];
-
-            //     if (!lid)
-            //         num_N_v[wid] = 0; // |N[v]|
-
-            //     __syncwarp();
-
-            //     // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-            //     for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
-            //         int u = edge_r[eid];
-            //         int l = u2L[u];
-            //         if (l < *L_lp_nxt)
-            //             atomicAdd(&(num_N_v[wid]), 1);
-            //     }
-
-            //     __syncwarp();
-
-            //     if (!lid) {
-            //         Q_rm[i] = INF;
-
-            //         // if |N[v]| = |L'| then
-            //         if (num_N_v[wid] == num_L_nxt) {
-            //             is_maximal = false;
-            //             *Q_lp_nxt = 0;
-            //         }
-
-            //         // else if |N[v]| > 0 then
-            //         else if (num_N_v[wid] == 0)
-            //             // Q' ← Q' ∪ {v};
-            //             // swap(Q[(*Q_ls_nxt)++], Q[i]);
-            //             Q_rm[i] = lvl;
-            //     }
-
-            //     __syncwarp();
-                
-            // }
-
             __syncthreads();
             
             CLK(4);
@@ -531,54 +485,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 num_N_u[v] = 0;
             }
 
-            // foreach v ∈ Q
-                    // WARNING // *Q_lp_cur // WARNING //
-            // for (int i = wid; i < *Q_lp_nxt; i += num_warps) {
-
-            //     if (Q_rm[i] < lvl) {
-            //         __syncwarp();
-            //         continue;
-            //     }
-
-            //     int v = Q[i];
-
-            //     if (!lid)
-            //         num_N_v[wid] = 0; // |N[v]|
-
-            //     __syncwarp();
-
-            //     // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-            //     for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
-            //         int u = edge_r[eid];
-            //         int l = u2L[u];
-            //         if (l < *L_lp_nxt)
-            //             atomicAdd(&(num_N_v[wid]), 1);
-            //     }
-
-            //     __syncwarp();
-
-            //     if (!lid) {
-            //         Q_rm[i] = INF;
-
-            //         // if |N[v]| = |L'| then
-            //         if (num_N_v[wid] == num_L_nxt) {
-            //             is_maximal = false;
-            //             *Q_lp_nxt = 0;
-            //         }
-
-            //         // else if |N[v]| > 0 then
-            //         else if (num_N_v[wid] == 0)
-            //             // Q' ← Q' ∪ {v};
-            //             // swap(Q[(*Q_ls_nxt)++], Q[i]);
-            //             Q_rm[i] = lvl;
-            //     }
-
-            //     __syncwarp();
-                
-            // }
-
             __syncthreads();
-            
+
             CLK(4);
 
             // if is_maximal = TRUE then

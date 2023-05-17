@@ -45,8 +45,6 @@ int main(int argc, char* argv[])
     time_t tmNow = time(0);
     string dataset = argv[1];
     dataset = dataset.substr(dataset.rfind('/')+1);
-    
-
 
     Node *node_l, *node_r;
 	int *edge_l, *edge_r, *tmp;
@@ -67,7 +65,6 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&time_section, sizeof(int)*NUM_CLK);
     *num_mb = 0;
     my_memset(time_section, 0, NUM_CLK);
-
 
     ifstream fin;
     fin.open(argv[1]);
@@ -174,12 +171,38 @@ int main(int argc, char* argv[])
     fout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << endl;
     fout << "grid_size: " << numBlocks << ", block_size: " << numThreads << endl;
 
-    // cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
     cudaLaunchCooperativeKernel((void*)CUDA_TRANSPOSE, num_blocks_TRANSPOSE, block_size, swap_RL ? kernelArgs_CSC2CSR : kernelArgs_CSR2CSC);
     cudaDeviceSynchronize();
-
     my_memset_sort(ori_P, 0, *NUM_R, node_r);
     
+    cudaMemPrefetchAsync(&NUM_EDGES   , sizeof(int), device, NULL);
+    cudaMemPrefetchAsync(&NUM_L       , sizeof(int), device, NULL);
+    cudaMemPrefetchAsync(&NUM_R       , sizeof(int), device, NULL);
+    cudaMemPrefetchAsync(&num_mb      , sizeof(int), device, NULL);
+    cudaMemPrefetchAsync(&time_section, sizeof(int)*NUM_CLK, device, NULL);
+
+    cudaMemPrefetchAsync(&node_l, sizeof(Node)*(*NUM_L    ), device, NULL);
+    cudaMemPrefetchAsync(&edge_l, sizeof(int )*(*NUM_EDGES), device, NULL);
+    cudaMemPrefetchAsync(&node_r, sizeof(Node)*(*NUM_R    ), device, NULL);
+    cudaMemPrefetchAsync(&edge_r, sizeof(int )*(*NUM_EDGES), device, NULL);
+    
+    cudaMemPrefetchAsync(g_u2L    , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_v2Q    , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_L      , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_R      , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_P      , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_Q      , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_x      , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_L_lp   , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_R_lp   , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_P_lp   , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_Q_lp   , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_Q_rm   , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_L_buf  , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_num_N_u, sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(ori_P    , sizeof(int)*(*NUM_R)          , device, NULL);
+    cudaDeviceSynchronize();
+
     int stat;
     float time;
     cudaEvent_t start, stop;
