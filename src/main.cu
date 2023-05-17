@@ -45,21 +45,29 @@ int main(int argc, char* argv[])
     time_t tmNow = time(0);
     string dataset = argv[1];
     dataset = dataset.substr(dataset.rfind('/')+1);
+    
+
 
     Node *node_l, *node_r;
 	int *edge_l, *edge_r, *tmp;
     int *NUM_L, *NUM_R, *NUM_EDGES, _;
+    int *num_mb, *time_section;
     // MBE
-    int *u2L, *L, *R, *P, *Q;
+    int *u2L, *v2Q, *L, *R, *P, *Q;
     int *x, *L_lp, *R_lp, *P_lp, *Q_lp;
-    int *Q_rm, *L_buf;
+    int *Q_rm, *L_buf, *num_N_u;
     // MBE_82
-    int *g_u2L, *g_L, *g_R, *g_P, *g_Q;
+    int *g_u2L, *g_v2Q, *g_L, *g_R, *g_P, *g_Q;
     int *g_x, *g_L_lp, *g_R_lp, *g_P_lp, *g_Q_lp;
-    int *g_Q_rm, *g_L_buf, *ori_P;
-    cudaMallocManaged(&NUM_EDGES, sizeof(int));
-    cudaMallocManaged(&NUM_L    , sizeof(int));
-    cudaMallocManaged(&NUM_R    , sizeof(int));
+    int *g_Q_rm, *g_L_buf, *g_num_N_u, *ori_P;
+    cudaMallocManaged(&NUM_EDGES   , sizeof(int));
+    cudaMallocManaged(&NUM_L       , sizeof(int));
+    cudaMallocManaged(&NUM_R       , sizeof(int));
+    cudaMallocManaged(&num_mb      , sizeof(int));
+    cudaMallocManaged(&time_section, sizeof(int)*NUM_CLK);
+    *num_mb = 0;
+    my_memset(time_section, 0, NUM_CLK);
+
 
     ifstream fin;
     fin.open(argv[1]);
@@ -96,37 +104,43 @@ int main(int argc, char* argv[])
     }
 
     // MBE
-    cudaMallocManaged(&u2L  , sizeof(int)*(*NUM_L)); my_memset_order(u2L, 0, *NUM_L);
-    cudaMallocManaged(&L    , sizeof(int)*(*NUM_L)); my_memset_order(L  , 0, *NUM_L);
-    cudaMallocManaged(&R    , sizeof(int)*(*NUM_R)); my_memset_order(R  , 0, *NUM_R);
-    cudaMallocManaged(&P    , sizeof(int)*(*NUM_R)); my_memset_order(P  , 0, *NUM_R);
-    cudaMallocManaged(&Q    , sizeof(int)*(*NUM_R)); my_memset_order(Q  , 0, *NUM_R);
-    cudaMallocManaged(&x    , sizeof(int)*(*NUM_R)); my_memset(x   ,     -1, *NUM_R);
-    cudaMallocManaged(&L_lp , sizeof(int)*(*NUM_R)); my_memset(L_lp, *NUM_L, *NUM_R);
-    cudaMallocManaged(&R_lp , sizeof(int)*(*NUM_R)); my_memset(R_lp,      0, *NUM_R);
-    cudaMallocManaged(&P_lp , sizeof(int)*(*NUM_R)); my_memset(P_lp, *NUM_R, *NUM_R);
-    cudaMallocManaged(&Q_lp , sizeof(int)*(*NUM_R)); my_memset(Q_lp,      0, *NUM_R);
-    cudaMallocManaged(&Q_rm , sizeof(int)*(*NUM_R)); my_memset(Q_rm,    INF, *NUM_R);
-    cudaMallocManaged(&L_buf, sizeof(int)*(*NUM_L)); my_memset(L_buf,     0, *NUM_L);
+    cudaMallocManaged(&u2L    , sizeof(int)*(*NUM_L)); my_memset_order(u2L, 0, *NUM_L);
+    cudaMallocManaged(&v2Q    , sizeof(int)*(*NUM_R)); my_memset_order(v2Q, 0, *NUM_R);
+    cudaMallocManaged(&L      , sizeof(int)*(*NUM_L)); my_memset_order(L  , 0, *NUM_L);
+    cudaMallocManaged(&R      , sizeof(int)*(*NUM_R)); my_memset_order(R  , 0, *NUM_R);
+    cudaMallocManaged(&P      , sizeof(int)*(*NUM_R)); my_memset_order(P  , 0, *NUM_R);
+    cudaMallocManaged(&Q      , sizeof(int)*(*NUM_R)); my_memset_order(Q  , 0, *NUM_R);
+    cudaMallocManaged(&x      , sizeof(int)*(*NUM_R)); my_memset(x   ,     -1, *NUM_R);
+    cudaMallocManaged(&L_lp   , sizeof(int)*(*NUM_R)); my_memset(L_lp, *NUM_L, *NUM_R);
+    cudaMallocManaged(&R_lp   , sizeof(int)*(*NUM_R)); my_memset(R_lp,      0, *NUM_R);
+    cudaMallocManaged(&P_lp   , sizeof(int)*(*NUM_R)); my_memset(P_lp, *NUM_R, *NUM_R);
+    cudaMallocManaged(&Q_lp   , sizeof(int)*(*NUM_R)); my_memset(Q_lp,      0, *NUM_R);
+    cudaMallocManaged(&Q_rm   , sizeof(int)*(*NUM_R)); my_memset(Q_rm,    INF, *NUM_R);
+    cudaMallocManaged(&L_buf  , sizeof(int)*(*NUM_L)); my_memset(L_buf,     0, *NUM_L);
+    cudaMallocManaged(&num_N_u, sizeof(int)*(*NUM_R)); my_memset(num_N_u,   0, *NUM_R);
     // MBE_82
-    cudaMallocManaged(&g_u2L  , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )   g_u2L[i] =   u2L[i % (*NUM_L)];
-    cudaMallocManaged(&g_L    , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )     g_L[i] =     L[i % (*NUM_L)];
-    cudaMallocManaged(&g_R    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_R[i] =     R[i % (*NUM_R)];
-    cudaMallocManaged(&g_P    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_P[i] =     P[i % (*NUM_R)];
-    cudaMallocManaged(&g_Q    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_Q[i] =     Q[i % (*NUM_R)];
-    cudaMallocManaged(&g_x    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_x[i] =     x[i % (*NUM_R)];
-    cudaMallocManaged(&g_L_lp , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )  g_L_lp[i] =  L_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_R_lp , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )  g_R_lp[i] =  R_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_P_lp , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )  g_P_lp[i] =  P_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_Q_lp , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )  g_Q_lp[i] =  Q_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_Q_rm , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )  g_Q_rm[i] =  Q_rm[i % (*NUM_R)];
-    cudaMallocManaged(&g_L_buf, sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; ) g_L_buf[i] = L_buf[i % (*NUM_L)];
+    cudaMallocManaged(&g_u2L    , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )     g_u2L[i] =     u2L[i % (*NUM_L)];
+    cudaMallocManaged(&g_v2Q    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_v2Q[i] =     v2Q[i % (*NUM_R)];
+    cudaMallocManaged(&g_L      , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )       g_L[i] =       L[i % (*NUM_L)];
+    cudaMallocManaged(&g_R      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_R[i] =       R[i % (*NUM_R)];
+    cudaMallocManaged(&g_P      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_P[i] =       P[i % (*NUM_R)];
+    cudaMallocManaged(&g_Q      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_Q[i] =       Q[i % (*NUM_R)];
+    cudaMallocManaged(&g_x      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_x[i] =       x[i % (*NUM_R)];
+    cudaMallocManaged(&g_L_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_L_lp[i] =    L_lp[i % (*NUM_R)];
+    cudaMallocManaged(&g_R_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_R_lp[i] =    R_lp[i % (*NUM_R)];
+    cudaMallocManaged(&g_P_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_P_lp[i] =    P_lp[i % (*NUM_R)];
+    cudaMallocManaged(&g_Q_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_Q_lp[i] =    Q_lp[i % (*NUM_R)];
+    cudaMallocManaged(&g_Q_rm   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_Q_rm[i] =    Q_rm[i % (*NUM_R)];
+    cudaMallocManaged(&g_L_buf  , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )   g_L_buf[i] =   L_buf[i % (*NUM_L)];
+    cudaMallocManaged(&g_num_N_u, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_num_N_u[i] = num_N_u[i % (*NUM_R)];
     cudaMallocManaged(&ori_P, sizeof(int)*(*NUM_R));
 
     void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
     void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_r, &edge_r, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
-    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r, &g_u2L, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &ori_P};
+    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
+                                 &g_u2L, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u,
+                                 &ori_P, &num_mb, &time_section};
 
     string algo;
     switch (NUM_BLKS) {
@@ -135,6 +149,13 @@ int main(int argc, char* argv[])
         case  0: algo = "GPU_1B"; break;
         default: algo = "GPU"   ; break;
     }
+    string filename = dataset.substr(0, dataset.rfind('.'));
+    filename += "_";
+    filename += algo;
+    cout << filename << endl;
+    
+    ofstream fout;
+    fout.open("result/"+filename);
 
 #ifdef DEBUG
     if (algo == "GPU") {
@@ -142,10 +163,16 @@ int main(int argc, char* argv[])
     }
 #endif /* DEBUG */
     cout << "date/time: "<< ctime(&tmNow);
-    cout << "algorithm: " << algo << "\n";
-    cout << "dataset: " << dataset << "\n";
-    cout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << "\n";
-    cout << "grid_size: " << numBlocks << ", block_size: " << numThreads << "\n";
+    cout << "algorithm: " << algo << endl;
+    cout << "dataset: " << dataset << endl;
+    cout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << endl;
+    cout << "grid_size: " << numBlocks << ", block_size: " << numThreads << endl;
+
+    fout << "date/time: "<< ctime(&tmNow);
+    fout << "algorithm: " << algo << endl;
+    fout << "dataset: " << dataset << endl;
+    fout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << endl;
+    fout << "grid_size: " << numBlocks << ", block_size: " << numThreads << endl;
 
     // cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
     cudaLaunchCooperativeKernel((void*)CUDA_TRANSPOSE, num_blocks_TRANSPOSE, block_size, swap_RL ? kernelArgs_CSC2CSR : kernelArgs_CSR2CSC);
@@ -174,9 +201,24 @@ int main(int argc, char* argv[])
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
 
-    // cout << "status: " << stat << ", ";
-    cout << "runtime (s): " << time/1000 << "\n";
-    cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 10 << ";1H";
+    // cout << "status: " << stat << endl;
+    cout << "maximal bicliques: " << *num_mb << endl;
+    cout << "time:";
+    for (int i = 0; i < NUM_CLK; i++)
+        cout << " " << time_section[i];
+    cout << endl;
+    cout << "runtime (s): " << time/1000 << endl;
+
+    fout << "maximal bicliques: " << *num_mb << endl;
+    fout << "time:";
+    for (int i = 0; i < NUM_CLK; i++)
+        fout << " " << time_section[i];
+    fout << endl;
+    fout << "runtime (s): " << time/1000 << endl;
+#ifdef DEBUG
+    if (algo == "GPU")
+        cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 10 << ";1H";
+#endif /* DEBUG */
 
     cudaFree(tmp);
     cudaFree(node_l);
@@ -186,8 +228,11 @@ int main(int argc, char* argv[])
     cudaFree(NUM_L);
     cudaFree(NUM_R);
     cudaFree(NUM_EDGES);
+    cudaFree(num_mb);
+    cudaFree(time_section);
     // MBE
     cudaFree(u2L);
+    cudaFree(v2Q);
     cudaFree(L);
     cudaFree(R);
     cudaFree(P);
@@ -198,8 +243,10 @@ int main(int argc, char* argv[])
     cudaFree(P_lp);
     cudaFree(Q_lp);
     cudaFree(L_buf);
+    cudaFree(num_N_u);
     // MBE_82
     cudaFree(g_u2L);
+    cudaFree(g_v2Q);
     cudaFree(g_L);
     cudaFree(g_R);
     cudaFree(g_P);
@@ -210,5 +257,6 @@ int main(int argc, char* argv[])
     cudaFree(g_P_lp);
     cudaFree(g_Q_lp);
     cudaFree(g_L_buf);
+    cudaFree(g_num_N_u);
     cudaFree(ori_P);
 }
