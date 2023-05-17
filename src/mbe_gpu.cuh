@@ -1,12 +1,11 @@
-__device__ int g_clk[NUM_CLK], g_clk_scale;
-__device__ int total_bic;
+__device__ int g_clk_scale;
 __device__ int P_ptr;
 
 __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             Node *node_l, int *edge_l, Node *node_r, int *edge_r,
                             int *g_u2L, int *g_v2Q, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
-                            int *g_L_buf, int *g_num_N_u, int *ori_P) {
+                            int *g_L_buf, int *g_num_N_u, int *ori_P, int *num_mb, int *time_section) {
 
     int *u2L     = g_u2L     + blockIdx.x * (*NUM_L);
     int *v2Q     = g_v2Q     + blockIdx.x * (*NUM_R);
@@ -44,15 +43,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         clk_ = clock();
         for (int i = 0; i < NUM_CLK; i++)
             clk[i] = 0;
-        if (!blockIdx.x)
-            for (int i = 0; i < NUM_CLK; i++)
-                g_clk[i] = 0;
     }
 
-    if (!tid) {
+    if (!tid)
         P_ptr = *NUM_R - 1;
-        total_bic = 0;
-    }
 
     grid.sync();
 
@@ -753,28 +747,22 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     grid.sync();
     
     if (!threadIdx.x)
-        atomicAdd(&total_bic, num_maximal_bicliques);
+        atomicAdd(num_mb, num_maximal_bicliques);
     grid.sync();
     if (!tid) {
         g_clk_scale = 0;
-        for (int num = total_bic >> 7; num >>= 1; g_clk_scale += 2) ;
+        for (int num = *num_mb >> 7; num >>= 1; g_clk_scale += 2) ;
     }
     grid.sync();
     if (!threadIdx.x)
         for (int i = 0; i < NUM_CLK; i++) {
             clk[i] >>= g_clk_scale;
-            atomicAdd(&(g_clk[i]), (int)clk[i]);
+            atomicAdd(&(time_section[i]), (int)clk[i]);
         }
     grid.sync();
-    if (!tid) {
 #ifdef DEBUG
+    if (!tid)
         printf("\33[6;1H");
 #endif /* DEBUG */
-        printf("maximal bicliques: %d\n", total_bic);
-        printf("time:");
-        for (int i = 0; i < NUM_CLK; i++)
-            printf(" %d", g_clk[i]);
-        printf("\n");
-    }
     grid.sync();
 }

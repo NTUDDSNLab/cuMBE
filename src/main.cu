@@ -45,10 +45,13 @@ int main(int argc, char* argv[])
     time_t tmNow = time(0);
     string dataset = argv[1];
     dataset = dataset.substr(dataset.rfind('/')+1);
+    
+
 
     Node *node_l, *node_r;
 	int *edge_l, *edge_r, *tmp;
     int *NUM_L, *NUM_R, *NUM_EDGES, _;
+    int *num_mb, *time_section;
     // MBE
     int *u2L, *v2Q, *L, *R, *P, *Q;
     int *x, *L_lp, *R_lp, *P_lp, *Q_lp;
@@ -57,9 +60,14 @@ int main(int argc, char* argv[])
     int *g_u2L, *g_v2Q, *g_L, *g_R, *g_P, *g_Q;
     int *g_x, *g_L_lp, *g_R_lp, *g_P_lp, *g_Q_lp;
     int *g_Q_rm, *g_L_buf, *g_num_N_u, *ori_P;
-    cudaMallocManaged(&NUM_EDGES, sizeof(int));
-    cudaMallocManaged(&NUM_L    , sizeof(int));
-    cudaMallocManaged(&NUM_R    , sizeof(int));
+    cudaMallocManaged(&NUM_EDGES   , sizeof(int));
+    cudaMallocManaged(&NUM_L       , sizeof(int));
+    cudaMallocManaged(&NUM_R       , sizeof(int));
+    cudaMallocManaged(&num_mb      , sizeof(int));
+    cudaMallocManaged(&time_section, sizeof(int)*NUM_CLK);
+    *num_mb = 0;
+    my_memset(time_section, 0, NUM_CLK);
+
 
     ifstream fin;
     fin.open(argv[1]);
@@ -130,7 +138,9 @@ int main(int argc, char* argv[])
     void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
     void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_r, &edge_r, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
-    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r, &g_u2L, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &ori_P};
+    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
+                                 &g_u2L, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u,
+                                 &ori_P, &num_mb, &time_section};
 
     string algo;
     switch (NUM_BLKS) {
@@ -139,6 +149,13 @@ int main(int argc, char* argv[])
         case  0: algo = "GPU_1B"; break;
         default: algo = "GPU"   ; break;
     }
+    string filename = dataset.substr(0, dataset.rfind('.'));
+    filename += "_";
+    filename += algo;
+    cout << filename << endl;
+    
+    ofstream fout;
+    fout.open("result/"+filename);
 
 #ifdef DEBUG
     if (algo == "GPU") {
@@ -146,10 +163,16 @@ int main(int argc, char* argv[])
     }
 #endif /* DEBUG */
     cout << "date/time: "<< ctime(&tmNow);
-    cout << "algorithm: " << algo << "\n";
-    cout << "dataset: " << dataset << "\n";
-    cout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << "\n";
-    cout << "grid_size: " << numBlocks << ", block_size: " << numThreads << "\n";
+    cout << "algorithm: " << algo << endl;
+    cout << "dataset: " << dataset << endl;
+    cout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << endl;
+    cout << "grid_size: " << numBlocks << ", block_size: " << numThreads << endl;
+
+    fout << "date/time: "<< ctime(&tmNow);
+    fout << "algorithm: " << algo << endl;
+    fout << "dataset: " << dataset << endl;
+    fout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << endl;
+    fout << "grid_size: " << numBlocks << ", block_size: " << numThreads << endl;
 
     // cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
     cudaLaunchCooperativeKernel((void*)CUDA_TRANSPOSE, num_blocks_TRANSPOSE, block_size, swap_RL ? kernelArgs_CSC2CSR : kernelArgs_CSR2CSC);
@@ -178,8 +201,20 @@ int main(int argc, char* argv[])
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
 
-    // cout << "status: " << stat << ", ";
-    cout << "runtime (s): " << time/1000 << "\n";
+    // cout << "status: " << stat << endl;
+    cout << "maximal bicliques: " << *num_mb << endl;
+    cout << "time:";
+    for (int i = 0; i < NUM_CLK; i++)
+        cout << " " << time_section[i];
+    cout << endl;
+    cout << "runtime (s): " << time/1000 << endl;
+
+    fout << "maximal bicliques: " << *num_mb << endl;
+    fout << "time:";
+    for (int i = 0; i < NUM_CLK; i++)
+        fout << " " << time_section[i];
+    fout << endl;
+    fout << "runtime (s): " << time/1000 << endl;
 #ifdef DEBUG
     if (algo == "GPU")
         cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 10 << ";1H";
@@ -193,6 +228,8 @@ int main(int argc, char* argv[])
     cudaFree(NUM_L);
     cudaFree(NUM_R);
     cudaFree(NUM_EDGES);
+    cudaFree(num_mb);
+    cudaFree(time_section);
     // MBE
     cudaFree(u2L);
     cudaFree(v2Q);
@@ -206,6 +243,7 @@ int main(int argc, char* argv[])
     cudaFree(P_lp);
     cudaFree(Q_lp);
     cudaFree(L_buf);
+    cudaFree(num_N_u);
     // MBE_82
     cudaFree(g_u2L);
     cudaFree(g_v2Q);
@@ -219,5 +257,6 @@ int main(int argc, char* argv[])
     cudaFree(g_P_lp);
     cudaFree(g_Q_lp);
     cudaFree(g_L_buf);
+    cudaFree(g_num_N_u);
     cudaFree(ori_P);
 }
