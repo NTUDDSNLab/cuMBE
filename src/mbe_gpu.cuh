@@ -37,6 +37,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     __shared__ bool is_recursive;
     __shared__ bool is_maximal;
     __shared__ int num_L_nxt, num_N_v[NUM_THDS >> 5], num_N_L;
+    __shared__ int i_min[NUM_THDS >> 5], old_min[NUM_THDS >> 5];
 
     __shared__ long long clk[NUM_CLK], clk_;
     if (!threadIdx.x) {
@@ -361,38 +362,51 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // find v in P to minimize num_L_nxt
             if (!threadIdx.x)
                 num_L_nxt = INF;
+            
+            if (!lid)
+                old_min[wid] = INF;
 
             __syncthreads();
 
             // foreach v ∈ P do
-            for (int i = *P_lp_cur; i-- > 0; ) {
+            for (int i = *P_lp_cur - wid - 1; i >= 0; i -= num_warps) {
 
                 int v = P[i];
 
-                if (!threadIdx.x)
-                    num_N_v[0] = 0; // |N[v]|
+                if (!lid)
+                    num_N_v[wid] = 0; // |N[v]|
 
-                __syncthreads();
+                __syncwarp();
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                for (int eid = node_r[v].start + threadIdx.x, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += blockDim.x) {
+                for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
                     int u = edge_r[eid];
                     int l = u2L[u];
-                    if (l < *L_lp_cur && atomicAdd(&(num_N_v[0]), 1) == num_L_nxt)
+                    if (l < *L_lp_cur && atomicAdd(&(num_N_v[wid]), 1) == old_min[wid])
                         break;
                 }
+                __syncwarp();
 
-                __syncthreads();
-
-                if (!threadIdx.x && num_N_v[0] < num_L_nxt) {
-                    num_L_nxt = num_N_v[0];
-                    int P_tmp = P[*P_lp_cur - 1];
-                    P[*P_lp_cur - 1] = P[i];
-                    P[i] = P_tmp;
+                if (!lid && num_N_v[wid] < old_min[wid]) {
+                    i_min[wid] = i;
+                    old_min[wid] = num_N_v[wid];
                 }
-
+                
             }
-            
+
+            __syncthreads();
+
+            if (!threadIdx.x) {
+                for (int i = 0; i < num_warps; i++) {
+                    if (old_min[i] < num_L_nxt) {
+                        num_L_nxt = old_min[i];
+                        int idx = i_min[i];
+                        int P_tmp = P[*P_lp_cur - 1];
+                        P[*P_lp_cur - 1] = P[idx];
+                        P[idx] = P_tmp;
+                    }
+                }
+            }
             __syncthreads();
 
             CLK(7);
