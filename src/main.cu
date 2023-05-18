@@ -53,11 +53,12 @@ int main(int argc, char* argv[])
     // MBE
     int *u2L, *v2Q, *L, *R, *P, *Q;
     int *x, *L_lp, *R_lp, *P_lp, *Q_lp;
-    int *Q_rm, *L_buf, *num_N_u;
+    int *Q_rm, *L_buf, *num_N_u, *pre_min;
     // MBE_82
     int *g_u2L, *g_v2Q, *g_L, *g_R, *g_P, *g_Q;
     int *g_x, *g_L_lp, *g_R_lp, *g_P_lp, *g_Q_lp;
-    int *g_Q_rm, *g_L_buf, *g_num_N_u, *ori_P;
+    int *g_Q_rm, *g_L_buf, *g_num_N_u, *g_pre_min;
+    int *ori_P;
     cudaMallocManaged(&NUM_EDGES   , sizeof(int));
     cudaMallocManaged(&NUM_L       , sizeof(int));
     cudaMallocManaged(&NUM_R       , sizeof(int));
@@ -115,6 +116,7 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&Q_rm   , sizeof(int)*(*NUM_R)); my_memset(Q_rm,    INF, *NUM_R);
     cudaMallocManaged(&L_buf  , sizeof(int)*(*NUM_L)); my_memset(L_buf,     0, *NUM_L);
     cudaMallocManaged(&num_N_u, sizeof(int)*(*NUM_R)); my_memset(num_N_u,   0, *NUM_R);
+    cudaMallocManaged(&pre_min, sizeof(int)*(*NUM_R)); my_memset(pre_min,   1, *NUM_R);
     // MBE_82
     cudaMallocManaged(&g_u2L    , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )     g_u2L[i] =     u2L[i % (*NUM_L)];
     cudaMallocManaged(&g_v2Q    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_v2Q[i] =     v2Q[i % (*NUM_R)];
@@ -130,13 +132,14 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&g_Q_rm   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_Q_rm[i] =    Q_rm[i % (*NUM_R)];
     cudaMallocManaged(&g_L_buf  , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )   g_L_buf[i] =   L_buf[i % (*NUM_L)];
     cudaMallocManaged(&g_num_N_u, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_num_N_u[i] = num_N_u[i % (*NUM_R)];
+    cudaMallocManaged(&g_pre_min, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_pre_min[i] = pre_min[i % (*NUM_R)];
     cudaMallocManaged(&ori_P, sizeof(int)*(*NUM_R));
 
     void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
     void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_r, &edge_r, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
     void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
-                                 &g_u2L, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u,
+                                 &g_u2L, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &g_pre_min,
                                  &ori_P, &num_mb, &time_section};
 
     string algo;
@@ -267,6 +270,7 @@ int main(int argc, char* argv[])
     cudaFree(Q_lp);
     cudaFree(L_buf);
     cudaFree(num_N_u);
+    cudaFree(pre_min);
     // MBE_82
     cudaFree(g_u2L);
     cudaFree(g_v2Q);
@@ -281,5 +285,6 @@ int main(int argc, char* argv[])
     cudaFree(g_Q_lp);
     cudaFree(g_L_buf);
     cudaFree(g_num_N_u);
+    cudaFree(g_pre_min);
     cudaFree(ori_P);
 }
