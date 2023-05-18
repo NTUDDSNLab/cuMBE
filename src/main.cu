@@ -203,6 +203,7 @@ int main(int argc, char* argv[])
     cudaMemPrefetchAsync(g_Q_rm   , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(g_L_buf  , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(g_num_N_u, sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(g_pre_min, sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(ori_P    , sizeof(int)*(*NUM_R)          , device, NULL);
     cudaDeviceSynchronize();
 

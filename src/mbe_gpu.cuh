@@ -375,43 +375,41 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             __syncthreads();
 
             // foreach v ∈ P do
-            for (int i = *P_lp_cur - wid - 1; i >= 0 && old_min[wid] != *pre_min_cur && num_L_nxt != *pre_min_cur; i -= num_warps) {
+            for (int i = *P_lp_cur; i-- > 0 && num_L_nxt != *pre_min_cur; ) {
 
                 int v = P[i];
 
-                if (!lid)
-                    num_N_v[wid] = 0; // |N[v]|
+                if (!threadIdx.x)
+                    num_N_v[0] = 0; // |N[v]|
 
-                __syncwarp();
+                __syncthreads();
 
                 // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                for (int eid = node_r[v].start + threadIdx.x, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += blockDim.x) {
                     int u = edge_r[eid];
                     int l = u2L[u];
-                    if (l < *L_lp_cur && atomicAdd(&(num_N_v[wid]), 1) == old_min[wid])
+                    if (l < *L_lp_cur && atomicAdd(&(num_N_v[0]), 1) == num_L_nxt)
                         break;
                 }
-                __syncwarp();
 
-                if (!lid && num_N_v[wid] < old_min[wid]) {
-                    i_min[wid] = i;
-                    old_min[wid] = num_N_v[wid];
+                __syncthreads();
+
+                if (!threadIdx.x && num_N_v[0] < num_L_nxt) {
+                    i_min[0] = i;
+                    num_L_nxt = num_N_v[0];
                 }
 
-                __syncwarp();
-                
+                __syncthreads();
+
             }
 
-            atomicMin(&num_L_nxt, old_min[wid]);
-            __syncthreads();
-
-            if (!lid && old_min[wid] == num_L_nxt && !atomicAdd(&lock, 1)) {
+            if (!threadIdx.x) {
                 // num_L_nxt = old_min[i];
-                int idx = i_min[wid];
+                int idx = i_min[0];
                 int P_tmp = P[*P_lp_cur - 1];
                 P[*P_lp_cur - 1] = P[idx];
                 P[idx] = P_tmp;
-                *pre_min_cur = old_min[wid];
+                *pre_min_cur = num_L_nxt;
             }
                 
             __syncthreads();
