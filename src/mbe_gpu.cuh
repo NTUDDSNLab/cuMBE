@@ -3,11 +3,12 @@ __device__ int P_ptr;
 
 __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             Node *node_l, int *edge_l, Node *node_r, int *edge_r,
-                            int *g_u2L, int *g_v2Q, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
+                            int *g_u2L, int *g_v2P, int *g_v2Q, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
                             int *g_L_buf, int *g_num_N_u, int *g_pre_min, int *ori_P, int *num_mb, int *time_section) {
 
     int *u2L     = g_u2L     + blockIdx.x * (*NUM_L);
+    int *v2P     = g_v2P     + blockIdx.x * (*NUM_R);
     int *v2Q     = g_v2Q     + blockIdx.x * (*NUM_R);
     int *L       = g_L       + blockIdx.x * (*NUM_L);
     int *R       = g_R       + blockIdx.x * (*NUM_R);
@@ -124,8 +125,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // }
 
             // reset P to ordered
-            for (int i = threadIdx.x; i < *P_lp_cur; i += blockDim.x)
-                P[i] = ori_P[i];
+            for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x)
+                v2P[P[i] = ori_P[i]] = i;
             
             __syncthreads();
 
@@ -224,58 +225,110 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // if is_maximal = TRUE then
             if (is_maximal == true) {
 
-                // foreach v ∈ P do
-                for (int align_i = 0; align_i < *P_lp_cur; align_i += num_warps) {
-                    int i = align_i + wid;
+                if (!threadIdx.x)
+                    num_N_L = 0;
 
-                    if (i < *P_lp_cur) {
+                __syncthreads();
 
-                        int v = P[i];
+                // foreach u ∈ L'
+                for (int i = wid; i < *L_lp_nxt; i += num_warps) {
 
-                        if (!lid)
-                            num_N_v[wid] = 0; // |N[v]|
+                    int u = L[i];
 
-                        __syncwarp();
-
-                        // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                        for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
-                            int u = edge_r[eid];
-                            int l = u2L[u];
-                            if (l < *L_lp_nxt)
-                                atomicAdd(&(num_N_v[wid]), 1);
-                        }
-
-                        __syncwarp();
-                        
-                        if (!lid) {
-                            // if |N[v]| = |L'| then
-                            if (num_N_v[wid] == num_L_nxt)
-                                // R' ← R' ∪ {v};
-                                R[atomicAdd(R_lp_nxt, 1)] = v;
-                        }
+                    // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                    for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                        int v = edge_l[eid];
+                        int p = v2P[v];
+                        if (p < *P_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                            L_buf[atomicAdd(&num_N_L, 1)] = v;
                     }
-                    
-                    __syncthreads();
-
-                    // serial maintain P
-                    if (!threadIdx.x) {
-                        for (int j = 0; j < num_warps; j++) {
-                            i = align_i + j;
-                            if (i == *P_lp_cur) break;
-                            int v = P[i];
-                            // else if |N[v]| > 0 then
-                            if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0/* && node_r[v].length >= node_r[*x_cur].length*//* && (node_r[v].length > node_r[*x_cur].length || (node_r[v].length == node_r[*x_cur].length && v > *x_cur))*/) {
-                                // P' ← P' ∪ {v};
-                                int P_tmp = P[*P_lp_nxt];
-                                P[(*P_lp_nxt)++] = P[i];
-                                P[i] = P_tmp;
-                            }
-                        }
-                    }
-                    
-                    __syncthreads();
 
                 }
+
+                __syncthreads();
+
+                for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                    int v = L_buf[i];
+                    if (num_N_u[v] == num_L_nxt)
+                        R[atomicAdd(R_lp_nxt, 1)] = v;
+                }
+
+                __syncthreads();
+
+                if (!threadIdx.x)
+                    for (int i = 0; i < num_N_L; i++) {
+                        int v = L_buf[i];
+                        int p = v2P[v];
+                        if (num_N_u[v] != num_L_nxt) {
+                            // P' ← P' ∪ {v};
+                            int P_tmp = P[*P_lp_nxt];
+                            P[*P_lp_nxt] = v;
+                            P[p] = P_tmp;
+                            // maintain v2P
+                            v2P[v] = (*P_lp_nxt)++;
+                            v2P[P_tmp] = p;
+                        }
+                        num_N_u[v] = 0;
+                    }
+
+                __syncthreads();
+
+                // // foreach v ∈ P do
+                // for (int align_i = 0; align_i < *P_lp_cur; align_i += num_warps) {
+                //     int i = align_i + wid;
+
+                //     if (i < *P_lp_cur) {
+
+                //         int v = P[i];
+
+                //         if (!lid)
+                //             num_N_v[wid] = 0; // |N[v]|
+
+                //         __syncwarp();
+
+                //         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                //         for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                //             int u = edge_r[eid];
+                //             int l = u2L[u];
+                //             if (l < *L_lp_nxt)
+                //                 atomicAdd(&(num_N_v[wid]), 1);
+                //         }
+
+                //         __syncwarp();
+                        
+                //         if (!lid) {
+                //             // if |N[v]| = |L'| then
+                //             if (num_N_v[wid] == num_L_nxt)
+                //                 // R' ← R' ∪ {v};
+                //                 R[atomicAdd(R_lp_nxt, 1)] = v;
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+
+                //     // serial maintain P
+                //     if (!threadIdx.x) {
+                //         for (int j = 0; j < num_warps; j++) {
+                //             i = align_i + j;
+                //             if (i == *P_lp_cur) break;
+                //             int v = P[i];
+                //             // else if |N[v]| > 0 then
+                //             if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0/* && node_r[v].length >= node_r[*x_cur].length*//* && (node_r[v].length > node_r[*x_cur].length || (node_r[v].length == node_r[*x_cur].length && v > *x_cur))*/) {
+                //                 // P' ← P' ∪ {v};
+                //                 int P_tmp = P[*P_lp_nxt];
+                //                 P[*P_lp_nxt] = v;
+                //                 P[i] = P_tmp;
+                //                 // maintain v2P
+                //                 v2P[v] = (*P_lp_nxt)++;
+                //                 v2P[P_tmp] = i;
+
+                //             }
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+
+                // }
             
                 CLK(5);
 
@@ -404,12 +457,15 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             }
 
             if (!threadIdx.x) {
-                // num_L_nxt = old_min[i];
+                *pre_min_cur = num_L_nxt;
+                // swap choosed *x_cur to P[*P_lp_cur - 1]
                 int idx = i_min[0];
                 int P_tmp = P[*P_lp_cur - 1];
                 P[*P_lp_cur - 1] = P[idx];
                 P[idx] = P_tmp;
-                *pre_min_cur = num_L_nxt;
+                // maintain v2P
+                v2P[P[*P_lp_cur - 1]] = *P_lp_cur - 1;
+                v2P[P_tmp] = idx;
             }
                 
             __syncthreads();
@@ -510,59 +566,110 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
             // if is_maximal = TRUE then
             if (is_maximal == true) {
+                
+                if (!threadIdx.x)
+                    num_N_L = 0;
 
-                // foreach v ∈ P do
-                for (int align_i = 0; align_i < *P_lp_cur; align_i += num_warps) {
-                    int i = align_i + wid;
+                __syncthreads();
 
-                    if (i < *P_lp_cur) {
+                // foreach u ∈ L'
+                for (int i = wid; i < *L_lp_nxt; i += num_warps) {
 
-                        int v = P[i];
+                    int u = L[i];
 
-                        if (!lid)
-                            num_N_v[wid] = 0; // |N[v]|
-
-                        __syncwarp();
-
-                        // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
-                        for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
-                            int u = edge_r[eid];
-                            int l = u2L[u];
-                            if (l < *L_lp_nxt)
-                                atomicAdd(&(num_N_v[wid]), 1);
-                        }
-
-                        __syncwarp();
-                        
-                        if (!lid) {
-                            // if |N[v]| = |L'| then
-                            if (num_N_v[wid] == num_L_nxt)
-                                // R' ← R' ∪ {v};
-                                R[atomicAdd(R_lp_nxt, 1)] = v;
-                        }
+                    // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                    for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                        int v = edge_l[eid];
+                        int p = v2P[v];
+                        if (p < *P_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                            L_buf[atomicAdd(&num_N_L, 1)] = v;
                     }
-                    
-                    __syncthreads();
-                    
-                    // serial maintain P
-                    if (!threadIdx.x) {
-                        for (int j = 0; j < num_warps; j++) {
-                            i = align_i + j;
-                            if (i == *P_lp_cur) break;
-                            int v = P[i];
-                            // else if |N[v]| > 0 then
-                            if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0) {
-                                // P' ← P' ∪ {v};
-                                int P_tmp = P[*P_lp_nxt];
-                                P[(*P_lp_nxt)++] = P[i];
-                                P[i] = P_tmp;
-                            }
-                        }
-                    }
-                    
-                    __syncthreads();
 
                 }
+
+                __syncthreads();
+
+                for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                    int v = L_buf[i];
+                    if (num_N_u[v] == num_L_nxt)
+                        R[atomicAdd(R_lp_nxt, 1)] = v;
+                }
+
+                __syncthreads();
+
+                if (!threadIdx.x)
+                    for (int i = 0; i < num_N_L; i++) {
+                        int v = L_buf[i];
+                        int p = v2P[v];
+                        if (num_N_u[v] != num_L_nxt) {
+                            // P' ← P' ∪ {v};
+                            int P_tmp = P[*P_lp_nxt];
+                            P[*P_lp_nxt] = v;
+                            P[p] = P_tmp;
+                            // maintain v2P
+                            v2P[v] = (*P_lp_nxt)++;
+                            v2P[P_tmp] = p;
+                        }
+                        num_N_u[v] = 0;
+                    }
+
+                __syncthreads();
+
+                // // foreach v ∈ P do
+                // for (int align_i = 0; align_i < *P_lp_cur; align_i += num_warps) {
+                //     int i = align_i + wid;
+
+                //     if (i < *P_lp_cur) {
+
+                //         int v = P[i];
+
+                //         if (!lid)
+                //             num_N_v[wid] = 0; // |N[v]|
+
+                //         __syncwarp();
+
+                //         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                //         for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                //             int u = edge_r[eid];
+                //             int l = u2L[u];
+                //             if (l < *L_lp_nxt)
+                //                 atomicAdd(&(num_N_v[wid]), 1);
+                //         }
+
+                //         __syncwarp();
+                        
+                //         if (!lid) {
+                //             // if |N[v]| = |L'| then
+                //             if (num_N_v[wid] == num_L_nxt)
+                //                 // R' ← R' ∪ {v};
+                //                 R[atomicAdd(R_lp_nxt, 1)] = v;
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+                    
+                //     // serial maintain P
+                //     if (!threadIdx.x) {
+                //         for (int j = 0; j < num_warps; j++) {
+                //             i = align_i + j;
+                //             if (i == *P_lp_cur) break;
+                //             int v = P[i];
+                //             // else if |N[v]| > 0 then
+                //             if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0) {
+                //                 // P' ← P' ∪ {v};
+                //                 int P_tmp = P[*P_lp_nxt];
+                //                 P[*P_lp_nxt] = v;
+                //                 P[i] = P_tmp;
+                //                 // maintain v2P
+                //                 v2P[v] = (*P_lp_nxt)++;
+                //                 v2P[P_tmp] = i;
+                //             }
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+
+                // }
             
                 CLK(5);
 
