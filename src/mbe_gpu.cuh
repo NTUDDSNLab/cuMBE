@@ -50,8 +50,12 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             clk[i] = 0;
     }
 
-    if (!tid)
-        P_ptr = *NUM_R - 1;
+    for (int i = *NUM_R - tid - 1; i >= 0; i -= num_total_thds)
+        if (node_r[ori_P[i]].length) {
+            if (i == *NUM_R - 1 || !node_r[ori_P[i + 1]].length)
+                P_ptr = i;
+            break;
+        }
 
     grid.sync();
 
@@ -79,7 +83,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
         if (lvl == 0)
         // while P ≠ ∅ do
-        while (*P_lp_cur >= gridDim.x) {
+        while (1 || *P_lp_cur >= gridDim.x) {
             
             __syncthreads();
 
