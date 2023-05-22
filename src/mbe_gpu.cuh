@@ -67,7 +67,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
     __syncthreads();
 
-    for (; lvl >= 0; ) {
+    while (lvl >= 0) {
 
         if (!threadIdx.x) {
             x_cur    = &(   x[lvl]);
@@ -120,7 +120,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 }
             }
             
-
             // for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; ) {
             //     if (i >= 0) {
             //         Q_rm[*Q_lp_cur] = INF;
@@ -129,7 +128,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // }
 
             // reset P to ordered
-            for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x)
+            for (int i = threadIdx.x; i < *P_lp_nxt; i += blockDim.x)
                 v2P[P[i] = ori_P[i]] = i;
             
             __syncthreads();
@@ -368,8 +367,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     // if P' ≠ ∅ then
                     if (*P_lp_nxt != 0) {
                         // biclique_find(G, L', R', P', Q');
-                        //// printf("\n往 下 安安");
-                        lvl++;
                         is_recursive = true;
                     }
 
@@ -383,11 +380,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     break;
 
             }
-            else {
-                //// printf("\n不安安");
-            }
 
             if (!threadIdx.x) {
+
+                // 往 右 安安
 
                 Q_rm[*Q_lp_cur] = INF;
 
@@ -401,10 +397,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 // maintain v2Q
                 v2Q[*x_cur] = (*Q_lp_cur)++;;
                 v2Q[Q_tmp] = q;
-
-                
-
-                //// printf("\n往 右 安安");
 
             }
 
@@ -710,8 +702,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     // if P' ≠ ∅ then
                     if (*P_lp_nxt != 0) {
                         // biclique_find(G, L', R', P', Q');
-                        //// printf("\n往 下 安安");
-                        lvl++;
                         is_recursive = true;
                     }
 
@@ -725,11 +715,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     break;
 
             }
-            else {
-                //// printf("\n不安安");
-            }
 
             if (!threadIdx.x) {
+
+                // 往 右 安安
                 
                 Q_rm[*Q_lp_cur] = INF;
 
@@ -744,11 +733,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 v2Q[*x_cur] = (*Q_lp_cur)++;;
                 v2Q[Q_tmp] = q;
 
-
-                
-                
-                //// printf("\n往 右 安安");
-
             }
 
         }
@@ -757,25 +741,23 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
         if (!threadIdx.x) {
 
-            if (!is_recursive) {
-                if (lvl--) {
-                    Q_rm[Q_lp[lvl]] = INF;
+            // 往 下 安安
+            if (is_recursive)
+                lvl++;
+            // 往 上 安安 // 往 右 安安
+            else if (lvl--) {
+                Q_rm[Q_lp[lvl]] = INF;
 
-                    int q = v2Q[x[lvl]];
+                int q = v2Q[x[lvl]];
 
-                    // swap Q
-                    int Q_tmp = Q[Q_lp[lvl]];
-                    Q[Q_lp[lvl]] = Q[q];
-                    Q[q] = Q_tmp;
-                    // maintain v2Q
-                    v2Q[x[lvl]] = Q_lp[lvl]++;
-                    v2Q[Q_tmp] = q;
-
-                }
-                //// printf("\n往 上 安安");
-                //// printf("\n往 右 安安");
+                // swap Q
+                int Q_tmp = Q[Q_lp[lvl]];
+                Q[Q_lp[lvl]] = Q[q];
+                Q[q] = Q_tmp;
+                // maintain v2Q
+                v2Q[x[lvl]] = Q_lp[lvl]++;
+                v2Q[Q_tmp] = q;
             }
-
         }
 
         __syncthreads();
