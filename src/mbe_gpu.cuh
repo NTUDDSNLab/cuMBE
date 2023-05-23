@@ -71,6 +71,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         // P_lp[0] = *NUM_R + blockIdx.x;
         P_lp[0] = *NUM_R;
         is_pause = false;
+        is_up = true;
     }
 
     __syncthreads();
