@@ -9,27 +9,27 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             int *ori_P, int *g_ori_P1, int *g_ori_Q1, int *g_ori_L1, int *g_P_ptr1, int *g_fix_P_ptr1,
                             int *num_mb, int *time_section) {
 
-    int *u2L        = g_u2L        + blockIdx.x * (*NUM_L);
-    int *v2P        = g_v2P        + blockIdx.x * (*NUM_R);
-    int *v2Q        = g_v2Q        + blockIdx.x * (*NUM_R);
-    int *L          = g_L          + blockIdx.x * (*NUM_L);
-    int *R          = g_R          + blockIdx.x * (*NUM_R);
-    int *P          = g_P          + blockIdx.x * (*NUM_R);
-    int *Q          = g_Q          + blockIdx.x * (*NUM_R);
-    int *x          = g_x          + blockIdx.x * (*NUM_R);
-    int *L_lp       = g_L_lp       + blockIdx.x * (*NUM_R);
-    int *R_lp       = g_R_lp       + blockIdx.x * (*NUM_R);
-    int *P_lp       = g_P_lp       + blockIdx.x * (*NUM_R);
-    int *Q_lp       = g_Q_lp       + blockIdx.x * (*NUM_R);
-    int *Q_rm       = g_Q_rm       + blockIdx.x * (*NUM_R);
-    int *L_buf      = g_L_buf      + blockIdx.x * (*NUM_L);
-    int *num_N_u    = g_num_N_u    + blockIdx.x * (*NUM_R);
-    int *pre_min    = g_pre_min    + blockIdx.x * (*NUM_R);
-    int *ori_P1     = g_ori_P1     + blockIdx.x * (*NUM_R);
-    int *ori_Q1     = g_ori_Q1     + blockIdx.x;
-    int *ori_L1     = g_ori_L1     + blockIdx.x * (*NUM_L);
-    int *P_ptr1     = g_P_ptr1     + blockIdx.x;
-    int *fix_P_ptr1 = g_fix_P_ptr1 + blockIdx.x;
+    __shared__ int *u2L       ;
+    __shared__ int *v2P       ;
+    __shared__ int *v2Q       ;
+    __shared__ int *L         ;
+    __shared__ int *R         ;
+    __shared__ int *P         ;
+    __shared__ int *Q         ;
+    __shared__ int *x         ;
+    __shared__ int *L_lp      ;
+    __shared__ int *R_lp      ;
+    __shared__ int *P_lp      ;
+    __shared__ int *Q_lp      ;
+    __shared__ int *Q_rm      ;
+    __shared__ int *L_buf     ;
+    __shared__ int *num_N_u   ;
+    __shared__ int *pre_min   ;
+    __shared__ int *ori_P1    ;
+    __shared__ int *ori_Q1    ;
+    __shared__ int *ori_L1    ;
+    __shared__ int *P_ptr1    ;
+    __shared__ int *fix_P_ptr1;
     grid_group grid = this_grid();
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int num_total_thds = gridDim.x * blockDim.x;
@@ -67,6 +67,27 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     grid.sync();
 
     if (!threadIdx.x) {
+        u2L        = g_u2L        + blockIdx.x * (*NUM_L);
+        v2P        = g_v2P        + blockIdx.x * (*NUM_R);
+        v2Q        = g_v2Q        + blockIdx.x * (*NUM_R);
+        L          = g_L          + blockIdx.x * (*NUM_L);
+        R          = g_R          + blockIdx.x * (*NUM_R);
+        P          = g_P          + blockIdx.x * (*NUM_R);
+        Q          = g_Q          + blockIdx.x * (*NUM_R);
+        x          = g_x          + blockIdx.x * (*NUM_R);
+        L_lp       = g_L_lp       + blockIdx.x * (*NUM_R);
+        R_lp       = g_R_lp       + blockIdx.x * (*NUM_R);
+        P_lp       = g_P_lp       + blockIdx.x * (*NUM_R);
+        Q_lp       = g_Q_lp       + blockIdx.x * (*NUM_R);
+        Q_rm       = g_Q_rm       + blockIdx.x * (*NUM_R);
+        L_buf      = g_L_buf      + blockIdx.x * (*NUM_L);
+        num_N_u    = g_num_N_u    + blockIdx.x * (*NUM_R);
+        pre_min    = g_pre_min    + blockIdx.x * (*NUM_R);
+        ori_P1     = g_ori_P1     + blockIdx.x * (*NUM_R);
+        ori_Q1     = g_ori_Q1     + blockIdx.x;
+        ori_L1     = g_ori_L1     + blockIdx.x * (*NUM_L);
+        P_ptr1     = g_P_ptr1     + blockIdx.x;
+        fix_P_ptr1 = g_fix_P_ptr1 + blockIdx.x;
         lvl = 0;
         // P_lp[0] = *NUM_R + blockIdx.x;
         P_lp[0] = *NUM_R;
