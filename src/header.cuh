@@ -63,3 +63,46 @@ void my_memset_sort(int *SA, int val_start, int val_end, Node *node) {
     for (int i = 0; i < res.size(); i++)
         SA[i] = res[i].first;
 }
+
+__device__ bool done;
+inline __device__ void PARALLEL_BUBBLE_SORT(int *a, int *n, int *deg) {
+    if (*n == 0) return;
+
+    grid_group grid = this_grid();
+    int id = threadIdx.x + blockIdx.x * blockDim.x, temp;
+
+    done = false;
+
+    grid.sync();
+
+    while (!done) {
+
+        grid.sync();
+
+        done = true;
+
+        grid.sync();
+
+        for (int i = id; ((i + 1) << 1) < *n; i += blockDim.x * gridDim.x)
+            if (deg[a[(i << 1) + 1]] < deg[a[(i << 1) + 2]]) {
+                temp = a[(i << 1) + 1];
+                a[(i << 1) + 1] = a[(i << 1) + 2];
+                a[(i << 1) + 2] = temp;
+                done = false;
+            }
+
+        grid.sync();
+
+        for (int i = id; ((i << 1) + 1) < *n; i += blockDim.x * gridDim.x)
+            if (deg[a[(i << 1)]] < deg[a[(i << 1) + 1]]) {
+                temp = a[(i << 1)];
+                a[(i << 1)] = a[(i << 1) + 1];
+                a[(i << 1) + 1] = temp;
+                done = false;
+            }
+
+        grid.sync();
+        
+    }
+    
+}

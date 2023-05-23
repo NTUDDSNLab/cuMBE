@@ -213,11 +213,11 @@ int main(int argc, char* argv[])
     cudaMemPrefetchAsync(g_L_buf  , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(g_num_N_u, sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(g_pre_min, sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
-    cudaMemPrefetchAsync(ori_P    , sizeof(int)*(*NUM_R)          , device, NULL);
-    cudaMemPrefetchAsync(ori_P1   , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
-    cudaMemPrefetchAsync(ori_Q1   , sizeof(int)         *numBlocks, device, NULL);
-    cudaMemPrefetchAsync(ori_L1   , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
-    cudaMemPrefetchAsync(P_ptr1   , sizeof(int)         *numBlocks, device, NULL);
+    cudaMemPrefetchAsync(ori_P        , sizeof(int)*(*NUM_R)          , device, NULL);
+    cudaMemPrefetchAsync(ori_P1       , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(ori_Q1       , sizeof(int)         *numBlocks, device, NULL);
+    cudaMemPrefetchAsync(ori_L1       , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
+    cudaMemPrefetchAsync(P_ptr1       , sizeof(int)         *numBlocks, device, NULL);
     cudaMemPrefetchAsync(fix_P_ptr1   , sizeof(int)         *numBlocks, device, NULL);
 
     cudaDeviceSynchronize();

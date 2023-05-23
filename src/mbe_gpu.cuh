@@ -423,7 +423,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // find v in P to minimize num_L_nxt
             if (!threadIdx.x) {
                 num_L_nxt = INF;
-                lock = 0;
+                // lock = 0;
             }
             
             if (!lid)
@@ -790,23 +790,46 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
     grid.sync();
 
-    
+    int *deg = L_buf;
 
+    // foreach v ∈ P do
+    for (int i = P_lp[1]; i-- > 0; ) {
 
+        int v = P[i];
 
+        if (!threadIdx.x)
+            num_N_v[0] = 0; // |N[v]|
 
+        __syncthreads();
 
+        // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+        for (int eid = node_r[v].start + threadIdx.x, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += blockDim.x) {
+            int u = edge_r[eid];
+            int l = u2L[u];
+            if (l < L_lp[1])
+                atomicAdd(&(num_N_v[0]), 1);
+        }
 
+        __syncthreads();
 
+        deg[P[i]] = num_N_v[0];
+        ori_P1[i] = P[i];
 
+        __syncthreads();
 
+    }
 
+    grid.sync();
 
+    for (int i = 0; i < gridDim.x; i++) {
+        PARALLEL_BUBBLE_SORT(&(g_ori_P1[i*(*NUM_R)]), &(g_P_lp[i*(*NUM_R)+1]), &(g_L_buf[i*(*NUM_L)]));
+        grid.sync();
+    }
 
-
-
-
-
+    for (int i = 1 + threadIdx.x; i < P_lp[1]; i += blockDim.x) {
+        if (deg[ori_P1[i]] > deg[ori_P1[i-1]])
+            printf("WTF\n");
+    }
 
 
 
@@ -1170,7 +1193,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // find v in P to minimize num_L_nxt
             if (!threadIdx.x) {
                 num_L_nxt = INF;
-                lock = 0;
+                // lock = 0;
             }
             
             if (!lid)
