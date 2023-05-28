@@ -8,10 +8,10 @@ import re
 if __name__ == "__main__":
 
     # define default informations
-    datas       = ['arXiv_cond-ma', 'DBpedia_locations', 'cswikisource', 'Marvel', 'YouTube']
-    algos       = ['CPU', 'GPU']
-    runtimes    = [[2.131176, 392.621765, 0.867390, 14.089269, 4957.191406],
-                   [0.309291, 43.111095, 3.936296, 8.527053, 6810.366211]]
+    datas       = ['YouTube', 'IMDB', 'BookCrossing', 'stackoverflow']
+    algos       = ['SoTA', 'cuMBE']
+    runtimes    = [[8.3, 120, 863, 892],
+                   [3.8, 32, 816, 571]]
     speedups    = [[runtimes[0][x]/runtimes[y][x] for x in range(len(datas))] for y in range(len(algos))]
     figure_name = 'speedup'
     figure_xlim = (0.5, 1.5) if 0 else None

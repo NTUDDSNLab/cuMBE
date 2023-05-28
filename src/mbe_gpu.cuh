@@ -5,31 +5,27 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             Node *node_l, int *edge_l, Node *node_r, int *edge_r,
                             int *g_u2L, int *g_v2P, int *g_v2Q, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
-                            int *g_L_buf, int *g_num_N_u, int *g_pre_min, int *ori_P, int *num_mb, int *time_section) {
+                            int *g_L_buf, int *g_num_N_u, int *g_pre_min,
+                            int *ori_P, int *g_ori_P1, int *g_ori_Q1, int *g_ori_L1,
+                            int *g_P_ptr1, int *g_fix_P_ptr1, int *g_fix_Q_ptr1,
+                            int *num_mb, int *time_section) {
 
-    int *u2L     = g_u2L     + blockIdx.x * (*NUM_L);
-    int *v2P     = g_v2P     + blockIdx.x * (*NUM_R);
-    int *v2Q     = g_v2Q     + blockIdx.x * (*NUM_R);
-    int *L       = g_L       + blockIdx.x * (*NUM_L);
-    int *R       = g_R       + blockIdx.x * (*NUM_R);
-    int *P       = g_P       + blockIdx.x * (*NUM_R);
-    int *Q       = g_Q       + blockIdx.x * (*NUM_R);
-    int *x       = g_x       + blockIdx.x * (*NUM_R);
-    int *L_lp    = g_L_lp    + blockIdx.x * (*NUM_R);
-    int *R_lp    = g_R_lp    + blockIdx.x * (*NUM_R);
-    int *P_lp    = g_P_lp    + blockIdx.x * (*NUM_R);
-    int *Q_lp    = g_Q_lp    + blockIdx.x * (*NUM_R);
-    int *Q_rm    = g_Q_rm    + blockIdx.x * (*NUM_R);
-    int *L_buf   = g_L_buf   + blockIdx.x * (*NUM_L);
-    int *num_N_u = g_num_N_u + blockIdx.x * (*NUM_R);
-    int *pre_min = g_pre_min + blockIdx.x * (*NUM_R);
+    __shared__ int *u2L, *v2P, *v2Q;
+    __shared__ int *L, *R, *P, *Q, *x;
+    __shared__ int *L_lp, *R_lp, *P_lp, *Q_lp;
+    __shared__ int *Q_rm;
+    __shared__ int *L_buf;
+    __shared__ int *num_N_u;
+    __shared__ int *pre_min;
+    __shared__ int *ori_P1, *ori_Q1, *ori_L1, *ori_R1;
+    __shared__ int *P_ptr1, *fix_P_ptr1, *fix_Q_ptr1;
     grid_group grid = this_grid();
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int num_total_thds = gridDim.x * blockDim.x;
     int wid = threadIdx.x >> 5;
     int lid = threadIdx.x & 0x1f;
-    int num_warps = blockDim.x >> 5;
-    int num_maximal_bicliques = 0;
+    __shared__ int num_total_thds;
+    __shared__ int num_warps;
+    __shared__ int num_maximal_bicliques;
     __shared__ int lvl;
     __shared__ int *x_cur;
     __shared__ int *L_lp_cur, *L_lp_nxt;
@@ -37,11 +33,11 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     __shared__ int *P_lp_cur, *P_lp_nxt;
     __shared__ int *Q_lp_cur, *Q_lp_nxt;
     __shared__ int *pre_min_cur;
-    __shared__ bool is_recursive;
-    __shared__ bool is_maximal;
+    __shared__ bool is_recursive, is_up;
+    __shared__ bool is_maximal, is_pause;
     __shared__ int num_L_nxt, num_N_v[NUM_THDS >> 5], num_N_L;
-    __shared__ int i_min[NUM_THDS >> 5], old_min[NUM_THDS >> 5];
-    __shared__ int lock;
+    __shared__ int i_min[NUM_THDS >> 5];
+    __shared__ int P_lp_cur_before, P_ptr0;
 
     __shared__ long long clk[NUM_CLK], clk_;
     if (!threadIdx.x) {
@@ -50,19 +46,47 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             clk[i] = 0;
     }
 
-    for (int i = *NUM_R - tid - 1; i >= 0; i -= num_total_thds)
+    for (int i = *NUM_R - tid - 1; i >= 0; i -= gridDim.x * blockDim.x)
         if (node_r[ori_P[i]].length) {
             if (i == *NUM_R - 1 || !node_r[ori_P[i + 1]].length)
                 P_ptr = i;
             break;
         }
-
+    
     grid.sync();
 
     if (!threadIdx.x) {
+        u2L        = g_u2L        + blockIdx.x * (*NUM_L);
+        v2P        = g_v2P        + blockIdx.x * (*NUM_R);
+        v2Q        = g_v2Q        + blockIdx.x * (*NUM_R);
+        L          = g_L          + blockIdx.x * (*NUM_L);
+        R          = g_R          + blockIdx.x * (*NUM_R);
+        P          = g_P          + blockIdx.x * (*NUM_R);
+        Q          = g_Q          + blockIdx.x * (*NUM_R);
+        x          = g_x          + blockIdx.x * (*NUM_R);
+        L_lp       = g_L_lp       + blockIdx.x * (*NUM_R);
+        R_lp       = g_R_lp       + blockIdx.x * (*NUM_R);
+        P_lp       = g_P_lp       + blockIdx.x * (*NUM_R);
+        Q_lp       = g_Q_lp       + blockIdx.x * (*NUM_R);
+        Q_rm       = g_Q_rm       + blockIdx.x * (*NUM_R);
+        L_buf      = g_L_buf      + blockIdx.x * (*NUM_L);
+        num_N_u    = g_num_N_u    + blockIdx.x * (*NUM_R);
+        pre_min    = g_pre_min    + blockIdx.x * (*NUM_R);
+        ori_P1     = g_ori_P1     + blockIdx.x * (*NUM_R);
+        ori_Q1     = g_ori_Q1     + blockIdx.x * (*NUM_R);
+        ori_L1     = g_ori_L1     + blockIdx.x * (*NUM_L);
+        P_ptr1     = g_P_ptr1     + blockIdx.x;
+        fix_P_ptr1 = g_fix_P_ptr1 + blockIdx.x;
+        fix_Q_ptr1 = g_fix_Q_ptr1 + blockIdx.x;
+        num_total_thds = gridDim.x * blockDim.x;
+        num_warps = blockDim.x >> 5;
+        num_maximal_bicliques = 0;
         lvl = 0;
+        P_ptr0 = blockIdx.x;
         // P_lp[0] = *NUM_R + blockIdx.x;
         P_lp[0] = *NUM_R;
+        is_pause = false;
+        is_up = true;
     }
 
     __syncthreads();
@@ -83,7 +107,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
         if (lvl == 0)
         // while P ≠ ∅ do
-        while (1 || *P_lp_cur >= gridDim.x) {
+        while (true) {
             
             __syncthreads();
 
@@ -92,7 +116,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // atomically get a new 1-level sub-tree
 
             if (!threadIdx.x) {
-                *P_lp_nxt = *P_lp_cur;
+                P_lp_cur_before = *P_lp_cur;
                 *P_lp_cur = atomicAdd(&P_ptr, -1);
                 *P_lp_cur = *P_lp_cur >= 0 ? *P_lp_cur : -1;
             }
@@ -102,7 +126,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             if (*P_lp_cur == -1) break;
 
             if (!threadIdx.x) {
-                for (int i = *P_lp_cur + 1; i < *P_lp_nxt; i++) {
+                for (int i = *P_lp_cur + 1; i < P_lp_cur_before; i++) {
                     
                     Q_rm[*Q_lp_cur] = INF;
 
@@ -114,7 +138,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     Q[*Q_lp_cur] = v;
                     Q[q] = Q_tmp;
                     // maintain v2Q
-                    v2Q[v] = (*Q_lp_cur)++;;
+                    v2Q[v] = (*Q_lp_cur)++;
                     v2Q[Q_tmp] = q;
 
                 }
@@ -128,7 +152,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // }
 
             // reset P to ordered
-            for (int i = threadIdx.x; i < *P_lp_nxt; i += blockDim.x)
+            for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
                 v2P[P[i] = ori_P[i]] = i;
             
             __syncthreads();
@@ -395,7 +419,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 Q[*Q_lp_cur] = *x_cur;
                 Q[q] = Q_tmp;
                 // maintain v2Q
-                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[*x_cur] = (*Q_lp_cur)++;
                 v2Q[Q_tmp] = q;
 
             }
@@ -404,7 +428,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
         else // lvl >= 1
         // while P ≠ ∅ do
-        while (*P_lp_cur != 0) {
+        while (*P_lp_cur != 0 && !is_pause) {
             
             __syncthreads();
 
@@ -415,11 +439,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // find v in P to minimize num_L_nxt
             if (!threadIdx.x) {
                 num_L_nxt = INF;
-                lock = 0;
+                // lock = 0;
             }
-            
-            if (!lid)
-                old_min[wid] = INF;
 
             __syncthreads();
 
@@ -730,10 +751,796 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 Q[*Q_lp_cur] = *x_cur;
                 Q[q] = Q_tmp;
                 // maintain v2Q
-                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[*x_cur] = (*Q_lp_cur)++;
+                v2Q[Q_tmp] = q;
+
+                // up or right
+                is_up = *P_lp_cur == 0;
+
+                // pause and goto gsync();
+                if (P_ptr < 0 && lvl - is_up == 1)
+                    is_pause = true;
+
+            }
+            __syncthreads();
+
+        }
+        
+        __syncthreads();
+
+        if (!threadIdx.x) {
+
+            // 往 下 安安
+            if (is_recursive)
+                lvl++;
+            // 往 上 安安 // 往 右 安安
+            else if (is_up && lvl--) {
+                Q_rm[Q_lp[lvl]] = INF;
+
+                int q = v2Q[x[lvl]];
+
+                // swap Q
+                int Q_tmp = Q[Q_lp[lvl]];
+                Q[Q_lp[lvl]] = Q[q];
+                Q[q] = Q_tmp;
+                // maintain v2Q
+                v2Q[x[lvl]] = Q_lp[lvl]++;
+                v2Q[Q_tmp] = q;
+            }
+        
+            // pause and goto gsync();
+            if (is_pause) {
+                *fix_P_ptr1 = P_lp[1];
+                *P_ptr1 = P_lp[1] - 1;
+                *fix_Q_ptr1 = Q_lp[1];
+            }
+        }
+        if (is_pause)
+            break;
+
+        __syncthreads();
+
+    }
+    
+    if (!threadIdx.x && !is_pause) {
+        *fix_P_ptr1 = P_lp[1];
+        *P_ptr1 = /*P_lp[1]*/ - 1;
+        *fix_Q_ptr1 = Q_lp[1];
+    }
+
+    grid.sync();
+
+    CLK(0);
+
+    for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x)
+        ori_P1[i] = P[i];
+
+    int *deg = L_buf;
+
+    // foreach v ∈ P do
+    for (int i = P_lp[1]; i-- > 0; ) {
+
+        int v = P[i];
+
+        if (!threadIdx.x)
+            num_N_v[0] = 0; // |N[v]|
+
+        __syncthreads();
+
+        // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+        for (int eid = node_r[v].start + threadIdx.x, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += blockDim.x) {
+            int u = edge_r[eid];
+            int l = u2L[u];
+            if (l < L_lp[1])
+                atomicAdd(&(num_N_v[0]), 1);
+        }
+
+        __syncthreads();
+
+        deg[P[i]] = num_N_v[0];
+
+        __syncthreads();
+
+    }
+
+    grid.sync();
+
+    for (int i = 0; i < gridDim.x; i++) {
+        PARALLEL_BUBBLE_SORT(&(g_ori_P1[i*(*NUM_R)]), &(g_P_lp[i*(*NUM_R)+1]), &(g_L_buf[i*(*NUM_L)]));
+        grid.sync();
+    }
+
+    for (int i = 1 + threadIdx.x; i < P_lp[1]; i += blockDim.x) {
+        if (deg[ori_P1[i]] > deg[ori_P1[i-1]])
+            printf("WTF\n");
+    }
+
+    for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x) {
+        ori_L1[i] = L[i];
+        ori_Q1[i] = Q[i];
+    }
+
+    for (int i = *NUM_R + threadIdx.x; i < *NUM_L; i += blockDim.x)
+        ori_L1[i] = L[i];
+
+    grid.sync();
+
+    CLK(9);
+
+
+    
+
+
+    // if (0)
+    while (true) {
+
+        
+
+    while (lvl >= 1) {
+
+        if (!threadIdx.x) {
+            x_cur    = &(   x[lvl]);
+            L_lp_cur = &(L_lp[lvl]); L_lp_nxt = &(L_lp[lvl+1]);
+            R_lp_cur = &(R_lp[lvl]); R_lp_nxt = &(R_lp[lvl+1]);
+            P_lp_cur = &(P_lp[lvl]); P_lp_nxt = &(P_lp[lvl+1]);
+            Q_lp_cur = &(Q_lp[lvl]); Q_lp_nxt = &(Q_lp[lvl+1]);
+            pre_min_cur = &(pre_min[lvl]);
+            is_recursive = false;
+        }
+        
+        __syncthreads();
+
+        if (lvl == 1)
+        // while P ≠ ∅ do
+        while (true) {
+            
+            __syncthreads();
+
+            CLK(0);
+
+            // atomically get a new 1-level sub-tree
+
+            if (!threadIdx.x) {
+                P_lp_cur_before = *P_lp_cur;
+                *P_lp_cur = atomicAdd(P_ptr1, -1);
+                *P_lp_cur = *P_lp_cur >= 0 ? *P_lp_cur : -1;
+            }
+            
+            __syncthreads();
+
+            if (*P_lp_cur == -1) break;
+
+            if (!threadIdx.x) {
+                for (int i = *P_lp_cur + 1; i < P_lp_cur_before; i++) {
+                    
+                    Q_rm[*Q_lp_cur] = INF;
+
+                    int v = ori_P1[i];
+                    int q = v2Q[v];
+
+                    // swap Q
+                    int Q_tmp = Q[*Q_lp_cur];
+                    Q[*Q_lp_cur] = v;
+                    Q[q] = Q_tmp;
+                    // maintain v2Q
+                    v2Q[v] = (*Q_lp_cur)++;
+                    v2Q[Q_tmp] = q;
+
+                }
+            }
+            
+            // for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; ) {
+            //     if (i >= 0) {
+            //         Q_rm[*Q_lp_cur] = INF;
+            //         Q[(*Q_lp_cur)++] = ori_P1[i];
+            //     }
+            // }
+
+            // reset P to ordered
+            for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
+                v2P[P[i] = ori_P1[i]] = i;
+            
+            __syncthreads();
+
+            CLK(8);
+
+            if (!threadIdx.x) {
+
+                // Select x from P;
+                // P <--- P \ {x before P_ptr and x_cur};
+                *x_cur = ori_P1[*P_lp_cur];
+                
+                // R' <--- R ∪ {x};
+                *R_lp_nxt = *R_lp_cur;
+                R[(*R_lp_nxt)++] = *x_cur;
+
+                //// *L_lp_nxt = 0;
+                num_L_nxt = 0;
+            
+                // P' ← ∅; Q' ← ∅;
+                *P_lp_nxt = 0; *Q_lp_nxt = *Q_lp_cur;
+                is_maximal = true;
+
+                // |L'|
+                *L_lp_nxt = 0;
+
+                // scan from L
+                num_N_L = 0;
+            }
+            
+            __syncthreads();
+
+            CLK(1);
+
+            // for (int l = threadIdx.x; l < *NUM_L; l += blockDim.x)
+            //     L[l] = L[l] > lvl ? lvl : L[l];
+
+            __syncthreads();
+
+            CLK(2);
+            
+            // L' <--- {u ∈ L | (u, x) ∈ E(G)};
+            for (int eid = node_r[*x_cur].start + threadIdx.x, eid_end = node_r[*x_cur].start + node_r[*x_cur].length; eid < eid_end; eid += blockDim.x) {
+                int u = edge_r[eid];
+                int l = u2L[u];
+                if (l < *L_lp_cur)
+                    L_buf[atomicAdd(&num_L_nxt, 1)] = u;
+            }
+
+            __syncthreads();
+
+            if (!threadIdx.x)
+                for (int i = 0; i < num_L_nxt; i++) {
+                    int u = L_buf[i];
+                    int l = u2L[u];
+                    // swap(L[(*L_lp_nxt)++], L[l]);
+                    int L_tmp = L[*L_lp_nxt];
+                    L[(*L_lp_nxt)++] = L[l];
+                    L[l] = L_tmp;
+                    // swap(u2L[L[l]], u2L[u]);
+                    int u2L_tmp = u2L[L[l]];
+                    u2L[L[l]] = u2L[u];
+                    u2L[u] = u2L_tmp;
+                }
+
+            __syncthreads();
+
+            CLK(3);
+
+            // foreach u ∈ L'
+            for (int i = wid; i < *L_lp_nxt; i += num_warps) {
+
+                int u = L[i];
+
+                // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                    int v = edge_l[eid];
+                    int q = v2Q[v];
+                    if (q < *Q_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                        L_buf[atomicAdd(&num_N_L, 1)] = v;
+                }
+            }
+
+            __syncthreads();
+
+            for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                int v = L_buf[i];
+                if (num_N_u[v] == num_L_nxt)
+                    is_maximal = false;
+                num_N_u[v] = 0;
+            }
+
+            __syncthreads();
+            
+            CLK(4);
+
+            // if is_maximal = TRUE then
+            if (is_maximal == true) {
+
+                if (!threadIdx.x)
+                    num_N_L = 0;
+
+                __syncthreads();
+
+                // foreach u ∈ L'
+                for (int i = wid; i < *L_lp_nxt; i += num_warps) {
+
+                    int u = L[i];
+
+                    // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                    for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                        int v = edge_l[eid];
+                        int p = v2P[v];
+                        if (p < *P_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                            L_buf[atomicAdd(&num_N_L, 1)] = v;
+                    }
+
+                }
+
+                __syncthreads();
+
+                for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                    int v = L_buf[i];
+                    if (num_N_u[v] == num_L_nxt)
+                        R[atomicAdd(R_lp_nxt, 1)] = v;
+                }
+
+                __syncthreads();
+
+                if (!threadIdx.x)
+                    for (int i = 0; i < num_N_L; i++) {
+                        int v = L_buf[i];
+                        int p = v2P[v];
+                        if (num_N_u[v] != num_L_nxt) {
+                            // P' ← P' ∪ {v};
+                            int P_tmp = P[*P_lp_nxt];
+                            P[*P_lp_nxt] = v;
+                            P[p] = P_tmp;
+                            // maintain v2P
+                            v2P[v] = (*P_lp_nxt)++;
+                            v2P[P_tmp] = p;
+                        }
+                        num_N_u[v] = 0;
+                    }
+
+                __syncthreads();
+
+                // // foreach v ∈ P do
+                // for (int align_i = 0; align_i < *P_lp_cur; align_i += num_warps) {
+                //     int i = align_i + wid;
+
+                //     if (i < *P_lp_cur) {
+
+                //         int v = P[i];
+
+                //         if (!lid)
+                //             num_N_v[wid] = 0; // |N[v]|
+
+                //         __syncwarp();
+
+                //         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                //         for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                //             int u = edge_r[eid];
+                //             int l = u2L[u];
+                //             if (l < *L_lp_nxt)
+                //                 atomicAdd(&(num_N_v[wid]), 1);
+                //         }
+
+                //         __syncwarp();
+                        
+                //         if (!lid) {
+                //             // if |N[v]| = |L'| then
+                //             if (num_N_v[wid] == num_L_nxt)
+                //                 // R' ← R' ∪ {v};
+                //                 R[atomicAdd(R_lp_nxt, 1)] = v;
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+
+                //     // serial maintain P
+                //     if (!threadIdx.x) {
+                //         for (int j = 0; j < num_warps; j++) {
+                //             i = align_i + j;
+                //             if (i == *P_lp_cur) break;
+                //             int v = P[i];
+                //             // else if |N[v]| > 0 then
+                //             if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0/* && node_r[v].length >= node_r[*x_cur].length*//* && (node_r[v].length > node_r[*x_cur].length || (node_r[v].length == node_r[*x_cur].length && v > *x_cur))*/) {
+                //                 // P' ← P' ∪ {v};
+                //                 int P_tmp = P[*P_lp_nxt];
+                //                 P[*P_lp_nxt] = v;
+                //                 P[i] = P_tmp;
+                //                 // maintain v2P
+                //                 v2P[v] = (*P_lp_nxt)++;
+                //                 v2P[P_tmp] = i;
+
+                //             }
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+
+                // }
+            
+                CLK(5);
+
+                if (!threadIdx.x) {
+#ifdef DEBUG
+
+                    //// if (blockIdx.x == LOG_BLK_ID) {
+                    ////     // PRINT(L', R');
+                    ////     printf("\n> Find maximal biclique (No. %d)", num_maximal_bicliques);
+                    ////     printf("\nL':");
+                    ////     for (int i = 0; i < *NUM_L; i++)
+                    ////         if (L[i] > lvl)
+                    ////             printf(" %d", i);
+                    ////     printf("\nR':");
+                    ////     for (int i = 0; i < *R_lp_nxt; i++)
+                    ////         printf(" %d", R[i]);
+                    ////     printf("\n");
+                    //// }
+
+                    // save maximal bicliques
+                    //// Biclique new_maximal_bicliques;
+                    //// for (int i = 0; i < *L_lp_nxt; i++)
+                    ////     new_maximal_bicliques.L.insert(L[i]);
+                    //// for (int i = 0; i < *R_lp_nxt; i++)
+                    ////     new_maximal_bicliques.R.insert(R[i]);
+                    //// maximal_bicliques.push_back(new_maximal_bicliques);
+
+                    // if (++num_maximal_bicliques > 0)
+                    printf("\33[%d;%dH%*d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, WORD_WIDTH, ++num_maximal_bicliques);
+#else  /* DEBUG */
+                    ++num_maximal_bicliques;
+#endif /* DEBUG */
+                    // if P' ≠ ∅ then
+                    if (*P_lp_nxt != 0) {
+                        // biclique_find(G, L', R', P', Q');
+                        is_recursive = true;
+                    }
+
+                }
+
+                __syncthreads();
+            
+                CLK(6);
+
+                if (is_recursive)
+                    break;
+
+            }
+
+            if (!threadIdx.x) {
+
+                // 往 右 安安
+
+                Q_rm[*Q_lp_cur] = INF;
+
+                // Q ← Q ∪ {x};
+                int q = v2Q[*x_cur];
+
+                // swap Q
+                int Q_tmp = Q[*Q_lp_cur];
+                Q[*Q_lp_cur] = *x_cur;
+                Q[q] = Q_tmp;
+                // maintain v2Q
+                v2Q[*x_cur] = (*Q_lp_cur)++;
                 v2Q[Q_tmp] = q;
 
             }
+
+        }
+
+        else // lvl >= 2
+        // while P ≠ ∅ do
+        while (*P_lp_cur != 0) {
+            
+            __syncthreads();
+
+            CLK(0);
+
+            // 5/8 revised start //
+            
+            // find v in P to minimize num_L_nxt
+            if (!threadIdx.x) {
+                num_L_nxt = INF;
+                // lock = 0;
+            }
+
+            __syncthreads();
+
+            // foreach v ∈ P do
+            for (int i = *P_lp_cur; i-- > 0 && num_L_nxt != *pre_min_cur; ) {
+
+                int v = P[i];
+
+                if (!threadIdx.x)
+                    num_N_v[0] = 0; // |N[v]|
+
+                __syncthreads();
+
+                // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                for (int eid = node_r[v].start + threadIdx.x, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += blockDim.x) {
+                    int u = edge_r[eid];
+                    int l = u2L[u];
+                    if (l < *L_lp_cur && atomicAdd(&(num_N_v[0]), 1) == num_L_nxt)
+                        break;
+                }
+
+                __syncthreads();
+
+                if (!threadIdx.x && num_N_v[0] < num_L_nxt) {
+                    i_min[0] = i;
+                    num_L_nxt = num_N_v[0];
+                }
+
+                __syncthreads();
+
+            }
+
+            if (!threadIdx.x) {
+                *pre_min_cur = num_L_nxt;
+                // swap choosed *x_cur to P[*P_lp_cur - 1]
+                int idx = i_min[0];
+                int P_tmp = P[*P_lp_cur - 1];
+                P[*P_lp_cur - 1] = P[idx];
+                P[idx] = P_tmp;
+                // maintain v2P
+                v2P[P[*P_lp_cur - 1]] = *P_lp_cur - 1;
+                v2P[P_tmp] = idx;
+            }
+                
+            __syncthreads();
+
+            CLK(7);
+
+            // 5/8 revised end //
+
+            if (!threadIdx.x) {
+
+                // Select x from P;
+                // P <--- P \ {x};
+                *x_cur = P[--(*P_lp_cur)];
+                
+                // R' <--- R ∪ {x};
+                *R_lp_nxt = *R_lp_cur;
+                R[(*R_lp_nxt)++] = *x_cur;
+
+                //// *L_lp_nxt = 0;
+                num_L_nxt = 0;
+                
+                // P' ← ∅; Q' ← ∅;
+                *P_lp_nxt = 0; *Q_lp_nxt = *Q_lp_cur;
+                is_maximal = true;
+                
+                // |L'|
+                *L_lp_nxt = 0;
+
+                // scan from L
+                num_N_L = 0;
+            }
+            
+            __syncthreads();
+
+            CLK(1);
+
+            // for (int l = threadIdx.x; l < *NUM_L; l += blockDim.x)
+            //     L[l] = L[l] > lvl ? lvl : L[l];
+
+            __syncthreads();
+
+            CLK(2);
+            
+            // L' <--- {u ∈ L | (u, x) ∈ E(G)};
+            for (int eid = node_r[*x_cur].start + threadIdx.x, eid_end = node_r[*x_cur].start + node_r[*x_cur].length; eid < eid_end; eid += blockDim.x) {
+                int u = edge_r[eid];
+                int l = u2L[u];
+                if (l < *L_lp_cur)
+                    L_buf[atomicAdd(&num_L_nxt, 1)] = u;
+            }
+
+            __syncthreads();
+
+            if (!threadIdx.x)
+                for (int i = 0; i < num_L_nxt; i++) {
+                    int u = L_buf[i];
+                    int l = u2L[u];
+                    // swap(L[(*L_lp_nxt)++], L[l]);
+                    int L_tmp = L[*L_lp_nxt];
+                    L[(*L_lp_nxt)++] = L[l];
+                    L[l] = L_tmp;
+                    // swap(u2L[L[l]], u2L[u]);
+                    int u2L_tmp = u2L[L[l]];
+                    u2L[L[l]] = u2L[u];
+                    u2L[u] = u2L_tmp;
+                }
+
+            __syncthreads();
+
+            CLK(3);
+
+            // foreach u ∈ L'
+            for (int i = wid; i < *L_lp_nxt; i += num_warps) {
+
+                int u = L[i];
+
+                // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                    int v = edge_l[eid];
+                    int q = v2Q[v];
+                    if (q < *Q_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                        L_buf[atomicAdd(&num_N_L, 1)] = v;
+                }
+            }
+
+            __syncthreads();
+
+            for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                int v = L_buf[i];
+                if (num_N_u[v] == num_L_nxt)
+                    is_maximal = false;
+                num_N_u[v] = 0;
+            }
+
+            __syncthreads();
+
+            CLK(4);
+
+            // if is_maximal = TRUE then
+            if (is_maximal == true) {
+                
+                if (!threadIdx.x)
+                    num_N_L = 0;
+
+                __syncthreads();
+
+                // foreach u ∈ L'
+                for (int i = wid; i < *L_lp_nxt; i += num_warps) {
+
+                    int u = L[i];
+
+                    // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                    for (int eid = node_l[u].start + lid, eid_end = node_l[u].start + node_l[u].length; eid < eid_end; eid += WARP_SIZE) {
+                        int v = edge_l[eid];
+                        int p = v2P[v];
+                        if (p < *P_lp_cur && atomicAdd(&(num_N_u[v]), 1) == 0)
+                            L_buf[atomicAdd(&num_N_L, 1)] = v;
+                    }
+
+                }
+
+                __syncthreads();
+
+                for (int i = threadIdx.x; i < num_N_L; i += blockDim.x) {
+                    int v = L_buf[i];
+                    if (num_N_u[v] == num_L_nxt)
+                        R[atomicAdd(R_lp_nxt, 1)] = v;
+                }
+
+                __syncthreads();
+
+                if (!threadIdx.x)
+                    for (int i = 0; i < num_N_L; i++) {
+                        int v = L_buf[i];
+                        int p = v2P[v];
+                        if (num_N_u[v] != num_L_nxt) {
+                            // P' ← P' ∪ {v};
+                            int P_tmp = P[*P_lp_nxt];
+                            P[*P_lp_nxt] = v;
+                            P[p] = P_tmp;
+                            // maintain v2P
+                            v2P[v] = (*P_lp_nxt)++;
+                            v2P[P_tmp] = p;
+                        }
+                        num_N_u[v] = 0;
+                    }
+
+                __syncthreads();
+
+                // // foreach v ∈ P do
+                // for (int align_i = 0; align_i < *P_lp_cur; align_i += num_warps) {
+                //     int i = align_i + wid;
+
+                //     if (i < *P_lp_cur) {
+
+                //         int v = P[i];
+
+                //         if (!lid)
+                //             num_N_v[wid] = 0; // |N[v]|
+
+                //         __syncwarp();
+
+                //         // N[v] ← {u ∈ L' | (u, v) ∈ E(G)};
+                //         for (int eid = node_r[v].start + lid, eid_end = node_r[v].start + node_r[v].length; eid < eid_end; eid += WARP_SIZE) {
+                //             int u = edge_r[eid];
+                //             int l = u2L[u];
+                //             if (l < *L_lp_nxt)
+                //                 atomicAdd(&(num_N_v[wid]), 1);
+                //         }
+
+                //         __syncwarp();
+                        
+                //         if (!lid) {
+                //             // if |N[v]| = |L'| then
+                //             if (num_N_v[wid] == num_L_nxt)
+                //                 // R' ← R' ∪ {v};
+                //                 R[atomicAdd(R_lp_nxt, 1)] = v;
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+                    
+                //     // serial maintain P
+                //     if (!threadIdx.x) {
+                //         for (int j = 0; j < num_warps; j++) {
+                //             i = align_i + j;
+                //             if (i == *P_lp_cur) break;
+                //             int v = P[i];
+                //             // else if |N[v]| > 0 then
+                //             if (num_N_v[j] != num_L_nxt && num_N_v[j] > 0) {
+                //                 // P' ← P' ∪ {v};
+                //                 int P_tmp = P[*P_lp_nxt];
+                //                 P[*P_lp_nxt] = v;
+                //                 P[i] = P_tmp;
+                //                 // maintain v2P
+                //                 v2P[v] = (*P_lp_nxt)++;
+                //                 v2P[P_tmp] = i;
+                //             }
+                //         }
+                //     }
+                    
+                //     __syncthreads();
+
+                // }
+            
+                CLK(5);
+
+                if (!threadIdx.x) {
+#ifdef DEBUG
+
+                    //// if (blockIdx.x == LOG_BLK_ID) {
+                    ////     // PRINT(L', R');
+                    ////     printf("\n> Find maximal biclique (No. %d)", num_maximal_bicliques);
+                    ////     printf("\nL':");
+                    ////     for (int i = 0; i < *NUM_L; i++)
+                    ////         if (L[i] > lvl)
+                    ////             printf(" %d", i);
+                    ////     printf("\nR':");
+                    ////     for (int i = 0; i < *R_lp_nxt; i++)
+                    ////         printf(" %d", R[i]);
+                    ////     printf("\n");
+                    //// }
+
+                    // save maximal bicliques
+                    //// Biclique new_maximal_bicliques;
+                    //// for (int i = 0; i < *L_lp_nxt; i++)
+                    ////     new_maximal_bicliques.L.insert(L[i]);
+                    //// for (int i = 0; i < *R_lp_nxt; i++)
+                    ////     new_maximal_bicliques.R.insert(R[i]);
+                    //// maximal_bicliques.push_back(new_maximal_bicliques);
+
+                    // if (++num_maximal_bicliques > 0)
+                    printf("\33[%d;%dH%*d\n", blockIdx.x / WORDS_1ROW + 9, (blockIdx.x % WORDS_1ROW) * WORD_WIDTH + 1, WORD_WIDTH, ++num_maximal_bicliques);
+#else  /* DEBUG */
+                    ++num_maximal_bicliques;
+#endif /* DEBUG */
+
+                    // if P' ≠ ∅ then
+                    if (*P_lp_nxt != 0) {
+                        // biclique_find(G, L', R', P', Q');
+                        is_recursive = true;
+                    }
+
+                }
+
+                __syncthreads();
+            
+                CLK(6);
+
+                if (is_recursive)
+                    break;
+
+            }
+
+            if (!threadIdx.x) {
+
+                // 往 右 安安
+                
+                Q_rm[*Q_lp_cur] = INF;
+
+                // Q ← Q ∪ {x};
+                int q = v2Q[*x_cur];
+
+                // swap Q
+                int Q_tmp = Q[*Q_lp_cur];
+                Q[*Q_lp_cur] = *x_cur;
+                Q[q] = Q_tmp;
+                // maintain v2Q
+                v2Q[*x_cur] = (*Q_lp_cur)++;
+                v2Q[Q_tmp] = q;
+
+            }
+            __syncthreads();
 
         }
         
@@ -764,6 +1571,66 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
     }
 
+
+        __syncthreads();
+
+        CLK(0);
+
+        if (!threadIdx.x)
+            // lvl = 0; // 不幫做
+            lvl = 1; // 幫做
+            // lvl = blockIdx.x == 0; // 限定某blk幫做
+        
+        __syncthreads();
+
+        if (!threadIdx.x) do {
+            ++P_ptr0 %= gridDim.x;
+            if (P_ptr0 == blockIdx.x) {
+                lvl = 0;
+                break;
+            }
+        } while (g_P_ptr1[P_ptr0] < 0);
+
+        __syncthreads();
+
+        if (lvl <= 0) break;
+        
+        if (!threadIdx.x) {
+            ori_P1     = g_ori_P1     + P_ptr0 * (*NUM_R);
+            ori_Q1     = g_ori_Q1     + P_ptr0 * (*NUM_R);
+            ori_L1     = g_ori_L1     + P_ptr0 * (*NUM_L);
+            ori_R1     = g_R          + P_ptr0 * (*NUM_R);
+            P_ptr1     = g_P_ptr1     + P_ptr0;
+            fix_P_ptr1 = g_fix_P_ptr1 + P_ptr0;
+            fix_Q_ptr1 = g_fix_Q_ptr1 + P_ptr0;
+
+            P_lp[1] = *fix_P_ptr1;
+            Q_lp[1] = *fix_Q_ptr1;
+            L_lp[1] = g_L_lp[P_ptr0 * (*NUM_R) + 1];
+            R_lp[1] = g_R_lp[P_ptr0 * (*NUM_R) + 1];
+            // printf("blk: %d, P_ptr0: %d\n", blockIdx.x, P_ptr0);
+        }
+
+        __syncthreads();
+        
+        for (int i = threadIdx.x; i < R_lp[1]; i += blockDim.x)
+            R[i] = ori_R1[i];
+        
+        for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x) {
+            v2P[P[i] = ori_P1[i]] = i;
+            v2Q[Q[i] = ori_Q1[i]] = i;
+        }
+
+        for (int i = threadIdx.x; i < *NUM_L; i += blockDim.x)
+            u2L[L[i] = ori_L1[i]] = i;
+
+        __syncthreads();
+
+        CLK(2);
+    }
+
+
+
     grid.sync();
     
     if (!threadIdx.x)
@@ -781,8 +1648,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         }
     grid.sync();
 #ifdef DEBUG
-    if (!tid)
+    if (!tid) {
         printf("\33[6;1H");
+        printf("num_2_lvl_tree: %d\n", num_2_tree);
+    }
 #endif /* DEBUG */
     grid.sync();
 }
