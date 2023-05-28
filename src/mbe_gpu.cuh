@@ -6,37 +6,26 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             int *g_u2L, int *g_v2P, int *g_v2Q, int *g_L, int *g_R, int *g_P, int *g_Q, int *g_Q_rm,
                             int *g_x, int *g_L_lp, int *g_R_lp, int *g_P_lp, int *g_Q_lp,
                             int *g_L_buf, int *g_num_N_u, int *g_pre_min,
-                            int *ori_P, int *g_ori_P1, int *g_ori_Q1, int *g_ori_L1, int *g_P_ptr1, int *g_fix_P_ptr1,
+                            int *ori_P, int *g_ori_P1, int *g_ori_Q1, int *g_ori_L1,
+                            int *g_P_ptr1, int *g_fix_P_ptr1, int *g_fix_Q_ptr1,
                             int *num_mb, int *time_section) {
 
-    __shared__ int *u2L       ;
-    __shared__ int *v2P       ;
-    __shared__ int *v2Q       ;
-    __shared__ int *L         ;
-    __shared__ int *R         ;
-    __shared__ int *P         ;
-    __shared__ int *Q         ;
-    __shared__ int *x         ;
-    __shared__ int *L_lp      ;
-    __shared__ int *R_lp      ;
-    __shared__ int *P_lp      ;
-    __shared__ int *Q_lp      ;
-    __shared__ int *Q_rm      ;
-    __shared__ int *L_buf     ;
-    __shared__ int *num_N_u   ;
-    __shared__ int *pre_min   ;
-    __shared__ int *ori_P1    ;
-    __shared__ int *ori_Q1    ;
-    __shared__ int *ori_L1    ;
-    __shared__ int *P_ptr1    ;
-    __shared__ int *fix_P_ptr1;
+    __shared__ int *u2L, *v2P, *v2Q;
+    __shared__ int *L, *R, *P, *Q, *x;
+    __shared__ int *L_lp, *R_lp, *P_lp, *Q_lp;
+    __shared__ int *Q_rm;
+    __shared__ int *L_buf;
+    __shared__ int *num_N_u;
+    __shared__ int *pre_min;
+    __shared__ int *ori_P1, *ori_Q1, *ori_L1, *ori_R1;
+    __shared__ int *P_ptr1, *fix_P_ptr1, *fix_Q_ptr1;
     grid_group grid = this_grid();
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int num_total_thds = gridDim.x * blockDim.x;
     int wid = threadIdx.x >> 5;
     int lid = threadIdx.x & 0x1f;
-    int num_warps = blockDim.x >> 5;
-    int num_maximal_bicliques = 0;
+    __shared__ int num_total_thds;
+    __shared__ int num_warps;
+    __shared__ int num_maximal_bicliques;
     __shared__ int lvl;
     __shared__ int *x_cur;
     __shared__ int *L_lp_cur, *L_lp_nxt;
@@ -47,8 +36,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     __shared__ bool is_recursive, is_up;
     __shared__ bool is_maximal, is_pause;
     __shared__ int num_L_nxt, num_N_v[NUM_THDS >> 5], num_N_L;
-    __shared__ int i_min[NUM_THDS >> 5], old_min[NUM_THDS >> 5];
-    __shared__ int lock;
+    __shared__ int i_min[NUM_THDS >> 5];
+    __shared__ int P_lp_cur_before, P_ptr0;
 
     __shared__ long long clk[NUM_CLK], clk_;
     if (!threadIdx.x) {
@@ -57,13 +46,13 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             clk[i] = 0;
     }
 
-    for (int i = *NUM_R - tid - 1; i >= 0; i -= num_total_thds)
+    for (int i = *NUM_R - tid - 1; i >= 0; i -= gridDim.x * blockDim.x)
         if (node_r[ori_P[i]].length) {
             if (i == *NUM_R - 1 || !node_r[ori_P[i + 1]].length)
                 P_ptr = i;
             break;
         }
-
+    
     grid.sync();
 
     if (!threadIdx.x) {
@@ -84,11 +73,16 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         num_N_u    = g_num_N_u    + blockIdx.x * (*NUM_R);
         pre_min    = g_pre_min    + blockIdx.x * (*NUM_R);
         ori_P1     = g_ori_P1     + blockIdx.x * (*NUM_R);
-        ori_Q1     = g_ori_Q1     + blockIdx.x;
+        ori_Q1     = g_ori_Q1     + blockIdx.x * (*NUM_R);
         ori_L1     = g_ori_L1     + blockIdx.x * (*NUM_L);
         P_ptr1     = g_P_ptr1     + blockIdx.x;
         fix_P_ptr1 = g_fix_P_ptr1 + blockIdx.x;
+        fix_Q_ptr1 = g_fix_Q_ptr1 + blockIdx.x;
+        num_total_thds = gridDim.x * blockDim.x;
+        num_warps = blockDim.x >> 5;
+        num_maximal_bicliques = 0;
         lvl = 0;
+        P_ptr0 = blockIdx.x;
         // P_lp[0] = *NUM_R + blockIdx.x;
         P_lp[0] = *NUM_R;
         is_pause = false;
@@ -113,7 +107,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
         if (lvl == 0)
         // while P ≠ ∅ do
-        while (1 || *P_lp_cur >= gridDim.x) {
+        while (true) {
             
             __syncthreads();
 
@@ -122,7 +116,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // atomically get a new 1-level sub-tree
 
             if (!threadIdx.x) {
-                *P_lp_nxt = *P_lp_cur;
+                P_lp_cur_before = *P_lp_cur;
                 *P_lp_cur = atomicAdd(&P_ptr, -1);
                 *P_lp_cur = *P_lp_cur >= 0 ? *P_lp_cur : -1;
             }
@@ -132,7 +126,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             if (*P_lp_cur == -1) break;
 
             if (!threadIdx.x) {
-                for (int i = *P_lp_cur + 1; i < *P_lp_nxt; i++) {
+                for (int i = *P_lp_cur + 1; i < P_lp_cur_before; i++) {
                     
                     Q_rm[*Q_lp_cur] = INF;
 
@@ -144,7 +138,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     Q[*Q_lp_cur] = v;
                     Q[q] = Q_tmp;
                     // maintain v2Q
-                    v2Q[v] = (*Q_lp_cur)++;;
+                    v2Q[v] = (*Q_lp_cur)++;
                     v2Q[Q_tmp] = q;
 
                 }
@@ -158,7 +152,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // }
 
             // reset P to ordered
-            for (int i = threadIdx.x; i < *P_lp_nxt; i += blockDim.x)
+            for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
                 v2P[P[i] = ori_P[i]] = i;
             
             __syncthreads();
@@ -425,7 +419,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 Q[*Q_lp_cur] = *x_cur;
                 Q[q] = Q_tmp;
                 // maintain v2Q
-                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[*x_cur] = (*Q_lp_cur)++;
                 v2Q[Q_tmp] = q;
 
             }
@@ -447,9 +441,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 num_L_nxt = INF;
                 // lock = 0;
             }
-            
-            if (!lid)
-                old_min[wid] = INF;
 
             __syncthreads();
 
@@ -760,14 +751,14 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 Q[*Q_lp_cur] = *x_cur;
                 Q[q] = Q_tmp;
                 // maintain v2Q
-                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[*x_cur] = (*Q_lp_cur)++;
                 v2Q[Q_tmp] = q;
 
                 // up or right
                 is_up = *P_lp_cur == 0;
 
                 // pause and goto gsync();
-                if (P_ptr < 0)
+                if (P_ptr < 0 && lvl - is_up == 1)
                     is_pause = true;
 
             }
@@ -801,6 +792,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             if (is_pause) {
                 *fix_P_ptr1 = P_lp[1];
                 *P_ptr1 = P_lp[1] - 1;
+                *fix_Q_ptr1 = Q_lp[1];
             }
         }
         if (is_pause)
@@ -809,8 +801,19 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         __syncthreads();
 
     }
+    
+    if (!threadIdx.x && !is_pause) {
+        *fix_P_ptr1 = P_lp[1];
+        *P_ptr1 = /*P_lp[1]*/ - 1;
+        *fix_Q_ptr1 = Q_lp[1];
+    }
 
     grid.sync();
+
+    CLK(0);
+
+    for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x)
+        ori_P1[i] = P[i];
 
     int *deg = L_buf;
 
@@ -835,7 +838,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         __syncthreads();
 
         deg[P[i]] = num_N_v[0];
-        ori_P1[i] = P[i];
 
         __syncthreads();
 
@@ -853,21 +855,28 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             printf("WTF\n");
     }
 
+    for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x) {
+        ori_L1[i] = L[i];
+        ori_Q1[i] = Q[i];
+    }
+
+    for (int i = *NUM_R + threadIdx.x; i < *NUM_L; i += blockDim.x)
+        ori_L1[i] = L[i];
+
+    grid.sync();
+
+    CLK(9);
 
 
+    
 
 
+    // if (0)
+    while (true) {
 
+        
 
-
-
-
-
-
-
-
-
-    while (lvl >= 0) {
+    while (lvl >= 1) {
 
         if (!threadIdx.x) {
             x_cur    = &(   x[lvl]);
@@ -881,9 +890,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         
         __syncthreads();
 
-        if (lvl == 0)
+        if (lvl == 1)
         // while P ≠ ∅ do
-        while (1 || *P_lp_cur >= gridDim.x) {
+        while (true) {
             
             __syncthreads();
 
@@ -892,8 +901,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // atomically get a new 1-level sub-tree
 
             if (!threadIdx.x) {
-                *P_lp_nxt = *P_lp_cur;
-                *P_lp_cur = atomicAdd(&P_ptr, -1);
+                P_lp_cur_before = *P_lp_cur;
+                *P_lp_cur = atomicAdd(P_ptr1, -1);
                 *P_lp_cur = *P_lp_cur >= 0 ? *P_lp_cur : -1;
             }
             
@@ -902,11 +911,11 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             if (*P_lp_cur == -1) break;
 
             if (!threadIdx.x) {
-                for (int i = *P_lp_cur + 1; i < *P_lp_nxt; i++) {
+                for (int i = *P_lp_cur + 1; i < P_lp_cur_before; i++) {
                     
                     Q_rm[*Q_lp_cur] = INF;
 
-                    int v = ori_P[i];
+                    int v = ori_P1[i];
                     int q = v2Q[v];
 
                     // swap Q
@@ -914,7 +923,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                     Q[*Q_lp_cur] = v;
                     Q[q] = Q_tmp;
                     // maintain v2Q
-                    v2Q[v] = (*Q_lp_cur)++;;
+                    v2Q[v] = (*Q_lp_cur)++;
                     v2Q[Q_tmp] = q;
 
                 }
@@ -923,13 +932,13 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // for (int i = *P_lp_cur, i_end = *P_lp_cur = atomicAdd(&P_ptr, -1); --i > i_end; ) {
             //     if (i >= 0) {
             //         Q_rm[*Q_lp_cur] = INF;
-            //         Q[(*Q_lp_cur)++] = ori_P[i];
+            //         Q[(*Q_lp_cur)++] = ori_P1[i];
             //     }
             // }
 
             // reset P to ordered
-            for (int i = threadIdx.x; i < *P_lp_nxt; i += blockDim.x)
-                v2P[P[i] = ori_P[i]] = i;
+            for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
+                v2P[P[i] = ori_P1[i]] = i;
             
             __syncthreads();
 
@@ -939,7 +948,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
                 // Select x from P;
                 // P <--- P \ {x before P_ptr and x_cur};
-                *x_cur = ori_P[*P_lp_cur];
+                *x_cur = ori_P1[*P_lp_cur];
                 
                 // R' <--- R ∪ {x};
                 *R_lp_nxt = *R_lp_cur;
@@ -1195,14 +1204,14 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 Q[*Q_lp_cur] = *x_cur;
                 Q[q] = Q_tmp;
                 // maintain v2Q
-                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[*x_cur] = (*Q_lp_cur)++;
                 v2Q[Q_tmp] = q;
 
             }
 
         }
 
-        else // lvl >= 1
+        else // lvl >= 2
         // while P ≠ ∅ do
         while (*P_lp_cur != 0) {
             
@@ -1217,9 +1226,6 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 num_L_nxt = INF;
                 // lock = 0;
             }
-            
-            if (!lid)
-                old_min[wid] = INF;
 
             __syncthreads();
 
@@ -1530,7 +1536,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 Q[*Q_lp_cur] = *x_cur;
                 Q[q] = Q_tmp;
                 // maintain v2Q
-                v2Q[*x_cur] = (*Q_lp_cur)++;;
+                v2Q[*x_cur] = (*Q_lp_cur)++;
                 v2Q[Q_tmp] = q;
 
             }
@@ -1566,6 +1572,64 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     }
 
 
+        __syncthreads();
+
+        CLK(0);
+
+        if (!threadIdx.x)
+            // lvl = 0; // 不幫做
+            lvl = 1; // 幫做
+            // lvl = blockIdx.x == 0; // 限定某blk幫做
+        
+        __syncthreads();
+
+        if (!threadIdx.x) do {
+            ++P_ptr0 %= gridDim.x;
+            if (P_ptr0 == blockIdx.x) {
+                lvl = 0;
+                break;
+            }
+        } while (g_P_ptr1[P_ptr0] < 0);
+
+        __syncthreads();
+
+        if (lvl <= 0) break;
+        
+        if (!threadIdx.x) {
+            ori_P1     = g_ori_P1     + P_ptr0 * (*NUM_R);
+            ori_Q1     = g_ori_Q1     + P_ptr0 * (*NUM_R);
+            ori_L1     = g_ori_L1     + P_ptr0 * (*NUM_L);
+            ori_R1     = g_R          + P_ptr0 * (*NUM_R);
+            P_ptr1     = g_P_ptr1     + P_ptr0;
+            fix_P_ptr1 = g_fix_P_ptr1 + P_ptr0;
+            fix_Q_ptr1 = g_fix_Q_ptr1 + P_ptr0;
+
+            P_lp[1] = *fix_P_ptr1;
+            Q_lp[1] = *fix_Q_ptr1;
+            L_lp[1] = g_L_lp[P_ptr0 * (*NUM_R) + 1];
+            R_lp[1] = g_R_lp[P_ptr0 * (*NUM_R) + 1];
+            // printf("blk: %d, P_ptr0: %d\n", blockIdx.x, P_ptr0);
+        }
+
+        __syncthreads();
+        
+        for (int i = threadIdx.x; i < R_lp[1]; i += blockDim.x)
+            R[i] = ori_R1[i];
+        
+        for (int i = threadIdx.x; i < *NUM_R; i += blockDim.x) {
+            v2P[P[i] = ori_P1[i]] = i;
+            v2Q[Q[i] = ori_Q1[i]] = i;
+        }
+
+        for (int i = threadIdx.x; i < *NUM_L; i += blockDim.x)
+            u2L[L[i] = ori_L1[i]] = i;
+
+        __syncthreads();
+
+        CLK(2);
+    }
+
+
 
     grid.sync();
     
@@ -1584,8 +1648,10 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         }
     grid.sync();
 #ifdef DEBUG
-    if (!tid)
+    if (!tid) {
         printf("\33[6;1H");
+        printf("num_2_lvl_tree: %d\n", num_2_tree);
+    }
 #endif /* DEBUG */
     grid.sync();
 }

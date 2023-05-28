@@ -11,3 +11,7 @@ utils/*.pl
 utils/*.out
 
 /result
+
+# ignore some paper related files
+speedup.png
+src/code*

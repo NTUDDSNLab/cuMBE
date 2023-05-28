@@ -58,8 +58,8 @@ int main(int argc, char* argv[])
     int *g_u2L, *g_v2P, *g_v2Q, *g_L, *g_R, *g_P, *g_Q;
     int *g_x, *g_L_lp, *g_R_lp, *g_P_lp, *g_Q_lp;
     int *g_Q_rm, *g_L_buf, *g_num_N_u, *g_pre_min;
-    int *ori_P;
-    int *ori_P1, *ori_Q1, *ori_L1, *P_ptr1, *fix_P_ptr1;
+    int *ori_P, *ori_P1, *ori_Q1, *ori_L1;
+    int *P_ptr1, *fix_P_ptr1, *fix_Q_ptr1;
     cudaMallocManaged(&NUM_EDGES   , sizeof(int));
     cudaMallocManaged(&NUM_L       , sizeof(int));
     cudaMallocManaged(&NUM_R       , sizeof(int));
@@ -138,17 +138,18 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&g_pre_min, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_pre_min[i] = pre_min[i % (*NUM_R)];
     cudaMallocManaged(&ori_P     , sizeof(int)*(*NUM_R));
     cudaMallocManaged(&ori_P1    , sizeof(int)*(*NUM_R)*numBlocks);
-    cudaMallocManaged(&ori_Q1    , sizeof(int)         *numBlocks);
+    cudaMallocManaged(&ori_Q1    , sizeof(int)*(*NUM_R)*numBlocks);
     cudaMallocManaged(&ori_L1    , sizeof(int)*(*NUM_L)*numBlocks);
     cudaMallocManaged(&P_ptr1    , sizeof(int)         *numBlocks);
     cudaMallocManaged(&fix_P_ptr1, sizeof(int)         *numBlocks);
+    cudaMallocManaged(&fix_Q_ptr1, sizeof(int)         *numBlocks);
 
     void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
     void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_r, &edge_r, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
     void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
                                  &g_u2L, &g_v2P, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_Q_rm, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &g_pre_min,
-                                 &ori_P, &ori_P1, &ori_Q1, &ori_L1, &P_ptr1, &fix_P_ptr1, &num_mb, &time_section};
+                                 &ori_P, &ori_P1, &ori_Q1, &ori_L1, &P_ptr1, &fix_P_ptr1, &fix_Q_ptr1, &num_mb, &time_section};
 
     string algo;
     switch (NUM_BLKS) {
@@ -160,7 +161,6 @@ int main(int argc, char* argv[])
     string filename = dataset.substr(0, dataset.rfind('.'));
     filename += "_";
     filename += algo;
-    cout << filename << endl;
     
     ofstream fout;
     fout.open("result/"+filename);
@@ -215,10 +215,11 @@ int main(int argc, char* argv[])
     cudaMemPrefetchAsync(g_pre_min, sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(ori_P        , sizeof(int)*(*NUM_R)          , device, NULL);
     cudaMemPrefetchAsync(ori_P1       , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
-    cudaMemPrefetchAsync(ori_Q1       , sizeof(int)         *numBlocks, device, NULL);
+    cudaMemPrefetchAsync(ori_Q1       , sizeof(int)*(*NUM_R)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(ori_L1       , sizeof(int)*(*NUM_L)*numBlocks, device, NULL);
     cudaMemPrefetchAsync(P_ptr1       , sizeof(int)         *numBlocks, device, NULL);
     cudaMemPrefetchAsync(fix_P_ptr1   , sizeof(int)         *numBlocks, device, NULL);
+    cudaMemPrefetchAsync(fix_Q_ptr1   , sizeof(int)         *numBlocks, device, NULL);
 
     cudaDeviceSynchronize();
 
@@ -310,4 +311,5 @@ int main(int argc, char* argv[])
     cudaFree(ori_L1);
     cudaFree(P_ptr1);
     cudaFree(fix_P_ptr1);
+    cudaFree(fix_Q_ptr1);
 }
