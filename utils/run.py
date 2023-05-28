@@ -14,15 +14,15 @@ import os
 # ]
 
 datas = [
-    'bn-mouse_visual-cortex_1',
+    # 'bn-mouse_visual-cortex_1',
     'DBpedia_locations'       ,
-    'edit-cswikisource'       ,
-    'edit-hawiktionary'       ,
-    'IMDB-actor'              ,
+    # 'edit-cswikisource'       ,
+    # 'edit-hawiktionary'       ,
     'Marvel'                  ,
     'YouTube'                 ,
-    # 'BookCrossing'            ,
+    'IMDB-actor'              ,
     # 'stackoverflow'           ,
+    # 'BookCrossing'            ,
     # 'wang-tripadvisor'        ,
     # 'Teams'                   ,
     # 'edit-hewikisource'       ,
@@ -32,7 +32,7 @@ datas = [
     # 'amazon-ratings'          ,
 ]
 
-os.system('make')
+os.system('make debug')
 
 for data in datas:
     print('\33[33m------ {} ------\33[0m'.format(data))

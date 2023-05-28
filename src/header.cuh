@@ -18,20 +18,27 @@ namespace cg = cooperative_groups;
 #define ONE          1
 #define ZERO         0
 
-#define MIN_SH      1
-#define WARP_SIZE  32
-#define NUM_THDS  256
+// kernel params
+#define MIN_SH          1
+#define LOG_WARP_SIZE   5
+#define WARP_SIZE      32
+#define NUM_THDS      512
 #define NUM_BLKS atoi(argv[2])
 
+// for block debugging
 #define WORDS_1ROW 16
 #define WORD_WIDTH  8
 #define LOG_BLK_ID  1
 
+// for clk analyzing
 #define NUM_CLK 10
+#ifdef DEBUG
 #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
 #define CLK_CPU(IDX) clk[IDX] += clock() - clk_; clk_ = clock();
-// #define CLK(IDX) ;
-// #define CLK_CPU(IDX) ;
+#else  /* DEBUG */
+#define CLK(IDX) ;
+#define CLK_CPU(IDX) ;
+#endif /* DEBUG */
 
 typedef struct {
 	int start;     // Index of first adjacent node in Ea
