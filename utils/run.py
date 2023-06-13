@@ -14,13 +14,16 @@ import os
 # ]
 
 datas = [
+    # 'arXiv_cond-ma'           ,
     # 'bn-mouse_visual-cortex_1',
-    'DBpedia_locations'       ,
+    # 'DBLP-author'             ,
+    # 'DBpedia_locations'       ,
     # 'edit-cswikisource'       ,
     # 'edit-hawiktionary'       ,
-    'Marvel'                  ,
+    # 'Marvel'                  ,
     'YouTube'                 ,
-    'IMDB-actor'              ,
+    'movielens-10m_ti'        ,
+    # 'IMDB-actor'              ,
     # 'stackoverflow'           ,
     # 'BookCrossing'            ,
     # 'wang-tripadvisor'        ,

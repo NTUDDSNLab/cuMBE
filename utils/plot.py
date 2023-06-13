@@ -11,7 +11,7 @@ if __name__ == "__main__":
     datas       = ['YouTube', 'IMDB', 'BookCrossing', 'stackoverflow']
     algos       = ['SoTA', 'cuMBE']
     runtimes    = [[8.3, 120, 863, 892],
-                   [2.67, 32, 690, 390]]
+                   [2.2189, 31.3568, 690, 349.955]]
     speedups    = [[runtimes[0][x]/runtimes[y][x] for x in range(len(datas))] for y in range(len(algos))]
     figure_name = 'speedup'
     figure_xlim = (0.5, 1.5) if 0 else None
