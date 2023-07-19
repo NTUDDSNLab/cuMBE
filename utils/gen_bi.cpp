@@ -3,8 +3,7 @@ using namespace std;
 
 // -------------------------------- //
 // Use: Convert to bipartite graph  //
-//   1. from edge-pair to CSR.      //
-//   2. from CSR to adj. matrix.    //
+//      (from edge-pair to CSR)     //
 // ---------- How to use ---------- //
 // g++ -O3 gen_bi.cpp -o gen_bi.out //
 // ./gen_bi.out [f_edge] [f_CSR]    //

@@ -1,31 +1,25 @@
 import os
 
-# datas = [
-#     'arXiv_cond-ma'           ,
-#     'bn-mouse_visual-cortex_1',
-#     'BookCrossing'            ,
-#     'DBpedia_locations'       ,
-#     'edit-cswikisource'       ,
-#     'edit-hawiktionary'       ,
-#     'IMDB-actor'              ,
-#     'Marvel'                  ,
-#     'stackoverflow'           ,
-#     'YouTube'                 ,
-# ]
-
 datas = [
-    # 'arXiv_cond-ma'           ,
+    # 'arXiv_cond-mat'          ,
     # 'bn-mouse_visual-cortex_1',
     # 'DBLP-author'             ,
     # 'DBpedia_locations'       ,
     # 'edit-cswikisource'       ,
+    # 'edit-guwikibooks'        ,
     # 'edit-hawiktionary'       ,
+    # 'gen-20-complete'         ,
     # 'Marvel'                  ,
-    'YouTube'                 ,
-    'movielens-10m_ti'        ,
+    # 'YouTube'                 ,
     # 'IMDB-actor'              ,
     # 'stackoverflow'           ,
     # 'BookCrossing'            ,
+    'corporate-leadership'    ,
+    'movielens-t-i'           ,
+    'movielens-u-i'           ,
+    'movielens-u-t'           ,
+    'UCforum'                 ,
+    'Unicode'                 ,
     # 'wang-tripadvisor'        ,
     # 'Teams'                   ,
     # 'edit-hewikisource'       ,
@@ -35,8 +29,9 @@ datas = [
     # 'amazon-ratings'          ,
 ]
 
-os.system('make debug')
+os.system('make')
 
 for data in datas:
     print('\33[33m------ {} ------\33[0m'.format(data))
     os.system('./bin/mbe ~/sorryTT/data/bi/{}.bi 999'.format(data))
+    os.system('./bin/mbe_nows ~/sorryTT/data/bi/{}.bi 999'.format(data))

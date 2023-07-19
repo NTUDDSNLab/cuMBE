@@ -1,4 +1,5 @@
 __device__ int P_ptr;
+__device__ long long init_clk[1024];
 
 __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             Node *node_l, int *edge_l, Node *node_r, int *edge_r,
@@ -86,6 +87,8 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         P_lp[0] = *NUM_R;
         is_pause = false;
         is_up = true;
+        // block_variance
+        init_clk[blockIdx.x] = clock();
     }
 
     __syncthreads();
@@ -229,7 +232,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             }
 
             __syncthreads();
-            
+
             CLK(4);
 
             // if is_maximal = TRUE then
@@ -616,7 +619,12 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         *P_ptr1 = -1;
         *fix_Q_ptr1 = Q_lp[1];
     }
-
+    // init_clk[blockIdx.x] = clock() - init_clk[blockIdx.x];
+    // grid.sync();
+    // if (!tid) {
+    //     for (int i = 0; i < gridDim.x; i++)
+    //         printf("%lld\n", init_clk[i]);
+    // }
     grid.sync();
 
     CLK(0);
@@ -820,7 +828,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 }
 
                 __syncthreads();
-                
+
                 CLK(4);
 
                 // if is_maximal = TRUE then
@@ -1241,9 +1249,15 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     }
 
 
+    init_clk[blockIdx.x] = clock() - init_clk[blockIdx.x];
 
     grid.sync();
     
+    // if (!tid) {
+    //     for (int i = 0; i < gridDim.x; i++)
+    //         printf("%lld\n", init_clk[i]);
+    // }
+    grid.sync();
     if (!threadIdx.x)
         atomicAdd(num_mb, num_maximal_bicliques);
 
