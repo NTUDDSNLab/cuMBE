@@ -33,7 +33,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
     __shared__ int *Q_lp_cur, *Q_lp_nxt;
     __shared__ int *pre_min_cur;
     __shared__ bool is_recursive, is_up;
-    __shared__ bool is_maximal, is_pause;
+    __shared__ bool is_maximal, is_pause, is_changed;
     __shared__ int num_L_nxt, num_N_v[NUM_THDS >> LOG_WARP_SIZE], num_N_L;
     __shared__ int i_min[NUM_THDS >> LOG_WARP_SIZE];
     __shared__ int P_lp_cur_before, P_ptr0;
@@ -86,6 +86,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
         // P_lp[0] = *NUM_R + blockIdx.x;
         P_lp[0] = *NUM_R;
         is_pause = false;
+        is_changed = true;
         is_up = true;
         // block_variance
         init_clk[blockIdx.x] = clock();
@@ -143,11 +144,17 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
                 }
             }
+            __syncthreads();
+            CLK(10);
 
             // reset P to ordered
-            for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
-                v2P[P[i] = ori_P[i]] = i;
-            
+            if (is_changed) {
+                __syncthreads();
+                for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
+                    v2P[P[i] = ori_P[i]] = i;
+                if (!threadIdx.x)
+                    is_changed = false;
+            }
             __syncthreads();
 
             CLK(8);
@@ -238,8 +245,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
             // if is_maximal = TRUE then
             if (is_maximal == true) {
 
-                if (!threadIdx.x)
+                if (!threadIdx.x) {
                     num_N_L = 0;
+                }
 
                 __syncthreads();
 
@@ -280,6 +288,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                             // maintain v2P
                             v2P[v] = (*P_lp_nxt)++;
                             v2P[P_tmp] = p;
+                            is_changed = true;
                         }
                         num_N_u[v] = 0;
                     }
@@ -740,10 +749,17 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
 
                     }
                 }
+                __syncthreads();
+                CLK(10);
 
                 // reset P to ordered
-                for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
-                    v2P[P[i] = ori_P1[i]] = i;
+                if (is_changed) {
+                    __syncthreads();
+                    for (int i = threadIdx.x; i < P_lp_cur_before; i += blockDim.x)
+                        v2P[P[i] = ori_P1[i]] = i;
+                    if (!threadIdx.x)
+                        is_changed = false;
+                }
                 
                 __syncthreads();
 
@@ -834,8 +850,9 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                 // if is_maximal = TRUE then
                 if (is_maximal == true) {
 
-                    if (!threadIdx.x)
+                    if (!threadIdx.x) {
                         num_N_L = 0;
+                    }
 
                     __syncthreads();
 
@@ -876,6 +893,7 @@ __global__ void CUDA_MBE_82(int *NUM_L, int *NUM_R, int *NUM_EDGES,
                                 // maintain v2P
                                 v2P[v] = (*P_lp_nxt)++;
                                 v2P[P_tmp] = p;
+                                is_changed = true;
                             }
                             num_N_u[v] = 0;
                         }

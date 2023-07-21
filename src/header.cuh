@@ -31,7 +31,7 @@ namespace cg = cooperative_groups;
 #define LOG_BLK_ID  1
 
 // for clk analyzing
-#define NUM_CLK 10
+#define NUM_CLK 11
 #ifdef DEBUG
 #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
 #define CLK_CPU(IDX) clk[IDX] += clock() - clk_; clk_ = clock();
