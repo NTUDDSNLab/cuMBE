@@ -20,10 +20,8 @@ int main(int argc, char* argv[])
 	int num_r = 0, num_l = 0, num_edges = 0, source = 0;
 	int num_passed_words, num_passed_words_per_edge;
 	
-	// cout << "Number of nodes: "; cin >> num_nodes;
-	// cout << "Number of edges: "; cin >> num_edges;
 	// ----- Something needed to be passed ----- //
-	cout << "Number of passed words: "; cin >> num_passed_words;
+	cout << "Number of passed words: ";          cin >> num_passed_words;
 	cout << "Number of passed words per edge: "; cin >> num_passed_words_per_edge;
 	for (int i = 0; i < num_passed_words; i++) fin >> _;
 
@@ -52,13 +50,6 @@ int main(int argc, char* argv[])
 	}
 
 	for (int i = 0; i < num_r; i++) {
-		// random gen //
-		// int prob = atoi(argv[3]);
-		// edge[i].clear();
-		// for (int j = 0; j < num_l; j++)
-		// 	if (rand()%1024 < prob)
-		// 		edge[i].insert(j);
-		// random gen //
 		node_length[i] = edge[i].size();
 		num_edges += node_length[i];
 	}

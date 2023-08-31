@@ -10,6 +10,14 @@ all:
 	@echo "#### Compile Logs ####" > $(LOG_PATH)/$(COMP_LOG).log
 	@echo "\n## $(SRC_PATH)/$(ALGO_MBE).cu ##\n" >> $(LOG_PATH)/$(COMP_LOG).log
 	nvcc $(FLAGS_TLP) $(SRC_PATH)/$(SRC_NAME).cu -o $(BIN_PATH)/$(BIN_NAME) 2>> $(LOG_PATH)/$(COMP_LOG).log
+devariance:
+	@echo "#### Compile Logs ####" > $(LOG_PATH)/$(COMP_LOG).log
+	@echo "\n## $(SRC_PATH)/$(ALGO_MBE).cu ##\n" >> $(LOG_PATH)/$(COMP_LOG).log
+	nvcc $(FLAGS_TLP) -DDEVARIANCE $(SRC_PATH)/$(SRC_NAME).cu -o $(BIN_PATH)/$(BIN_NAME) 2>> $(LOG_PATH)/$(COMP_LOG).log
+desection:
+	@echo "#### Compile Logs ####" > $(LOG_PATH)/$(COMP_LOG).log
+	@echo "\n## $(SRC_PATH)/$(ALGO_MBE).cu ##\n" >> $(LOG_PATH)/$(COMP_LOG).log
+	nvcc $(FLAGS_TLP) -DDESECTION $(SRC_PATH)/$(SRC_NAME).cu -o $(BIN_PATH)/$(BIN_NAME) 2>> $(LOG_PATH)/$(COMP_LOG).log
 debug:
 	@echo "#### Compile Logs ####" > $(LOG_PATH)/$(COMP_LOG).log
 	@echo "\n## $(SRC_PATH)/$(ALGO_MBE).cu ##\n" >> $(LOG_PATH)/$(COMP_LOG).log

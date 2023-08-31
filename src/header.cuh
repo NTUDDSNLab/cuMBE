@@ -18,12 +18,12 @@ namespace cg = cooperative_groups;
 #define ONE          1
 #define ZERO         0
 
+#define ALGORITHM (argc > 2 ? argv[2] : "cuMBE")
 // kernel params
-#define MIN_SH          1
 #define LOG_WARP_SIZE   5
 #define WARP_SIZE      32
 #define NUM_THDS      512
-#define NUM_BLKS atoi(argv[2])
+#define NUM_BLKS      999
 
 // for block debugging
 #define WORDS_1ROW 16
@@ -31,14 +31,19 @@ namespace cg = cooperative_groups;
 #define LOG_BLK_ID  1
 
 // for clk analyzing
-#define NUM_CLK 10
-#ifdef DEBUG
+#define NUM_CLK 11
+#ifdef DESECTION
 #define CLK(IDX) if (!threadIdx.x) { clk[IDX] += clock() - clk_; clk_ = clock(); }
 #define CLK_CPU(IDX) clk[IDX] += clock() - clk_; clk_ = clock();
-#else  /* DEBUG */
+#else  /* DESECTION */
 #define CLK(IDX) ;
 #define CLK_CPU(IDX) ;
-#endif /* DEBUG */
+#endif /* DESECTION */
+
+// for independent subtree fetching in MBE kernels
+__device__ int P_ptr;
+// for while loop breaking in BUBBLE_SORT kernel
+__device__ bool done;
 
 typedef struct {
 	int start;     // Index of first adjacent node in Ea
@@ -71,7 +76,6 @@ void my_memset_sort(int *SA, int val_start, int val_end, Node *node) {
         SA[i] = res[i].first;
 }
 
-__device__ bool done;
 inline __device__ void PARALLEL_BUBBLE_SORT(int *a, int *n, int *deg) {
     if (*n == 0) return;
 

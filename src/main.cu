@@ -1,44 +1,9 @@
 #include <src/header.cuh>
 #include <src/transpose.cuh>
-#include <src/mbe_cpu.cuh>
-#include <src/mbe_cpu_lp.cuh>
-#include <src/mbe_gpu_1b.cuh>
-#include <src/mbe_gpu.cuh>
-
-void maximal_bic_enum_MineLMBC(int *NUM_L, int *NUM_R, int *NUM_EDGES, Node *node_r, int *edge_r,
-                               unordered_set<int> X, unordered_set<int> gammaX, set<int> tailX) {
-    unordered_set<int> gammaXprime;
-    for (const auto &v: tailX) {
-        gammaXprime.clear();
-        for (int eid = node_r[v].start, eid_end = eid + node_r[v].length; eid < eid_end; eid++) {
-            int u = edge_r[eid];
-            if (gammaX.find(u) != gammaX.end())
-                gammaXprime.insert(u);
-        }
-        if (gammaXprime.size() < MIN_SH)
-            tailX.erase(v);
-    }
-    if (X.size() + tailX.size() < MIN_SH)
-        return;
-    for (const auto &v: tailX) {
-        tailX.erase(v);
-        unordered_set<int> Y = X;
-        Y.insert(v);
-        if (X.size() + tailX.size() + 1 > MIN_SH) {
-            for (const auto &v_: tailX) {
-                int num_N_v = 0;
-                for (int eid = node_r[v_].start, eid_end = eid + node_r[v_].length; eid < eid_end; eid++) {
-                    int u = edge_r[eid];
-                    if (gammaXprime.find(u) != gammaXprime.end())
-                        ++num_N_v;
-                }
-                if (num_N_v == gammaXprime.size())
-                    Y.insert(v_);
-            }
-            
-        }
-    }
-}
+#include <src/mbe_cuMBE.cuh>
+#include <src/mbe_noES.cuh>
+#include <src/mbe_noRS.cuh>
+#include <src/mbe_noWS.cuh>
 
 int main(int argc, char* argv[])
 {
@@ -87,13 +52,12 @@ int main(int argc, char* argv[])
     cudaGetDevice(&device);
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, device);
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSM, CUDA_MBE_82, numThreads, 0);
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocksPerSM, CUDA_MBE_cuMBE, numThreads, 0);
     int numBlocks_max = deviceProp.multiProcessorCount * numBlocksPerSM;
     int numBlocks = NUM_BLKS > numBlocks_max ? numBlocks_max : \
-                    NUM_BLKS == 0 ? 1 : NUM_BLKS < 0 ? 0 : NUM_BLKS;
+                    NUM_BLKS > 0 ? NUM_BLKS : 1;
     dim3 num_blocks_TRANSPOSE(numBlocks, 1, 1);
-    dim3 num_blocks_MBE(1, 1, 1);
-    dim3 num_blocks_MBE_82(numBlocks, 1, 1);
+    dim3 num_blocks_MBE(numBlocks, 1, 1);
     dim3 block_size(numThreads, 1, 1);
 
     bool swap_RL = *NUM_R > *NUM_L;
@@ -145,29 +109,19 @@ int main(int argc, char* argv[])
 
     void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
     void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
-    void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_r, &edge_r, &u2L, &L, &R, &P, &Q, &x, &L_lp, &R_lp, &P_lp, &Q_lp};
-    void *kernelArgs_MBE_82[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
-                                 &g_u2L, &g_v2P, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &g_pre_min,
-                                 &ori_P, &ori_P1, &ori_Q1, &ori_L1, &P_ptr1, &fix_P_ptr1, &fix_Q_ptr1, &num_mb, &time_section};
+    void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
+                              &g_u2L, &g_v2P, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &g_pre_min,
+                              &ori_P, &ori_P1, &ori_Q1, &ori_L1, &P_ptr1, &fix_P_ptr1, &fix_Q_ptr1, &num_mb, &time_section};
 
-    string algo;
-    switch (NUM_BLKS) {
-        case -2: algo = "CPU"   ; break;
-        case -1: algo = "CPU_lp"; break;
-        case  0: algo = "GPU_1B"; break;
-        default: algo = "GPU"   ; break;
-    }
-    string filename = dataset.substr(0, dataset.rfind('.'));
-    filename += "_";
-    filename += algo;
+    string algo = ALGORITHM;
+    algo = algo == "noRS" || algo == "noES" || algo == "noWS" ? algo : "cuMBE";
+    string filename = dataset.substr(0, dataset.rfind('.')) + "_" + algo;
     
     ofstream fout;
     fout.open("result/"+filename);
 
 #ifdef DEBUG
-    if (algo == "GPU") {
-        cout << "\33[2J\33[1;1H";
-    }
+    cout << "\33[2J\33[1;1H";
 #endif /* DEBUG */
     cout << "date/time: "<< ctime(&tmNow);
     cout << "algorithm: " << algo << endl;
@@ -228,14 +182,14 @@ int main(int argc, char* argv[])
     cudaEventCreate(&stop);
     cudaEventRecord(start);
 
-    if (algo == "CPU")
-        maximal_bic_enum_set(NUM_L, NUM_R, NUM_EDGES, node_r, edge_r, u2L, L, R, P, Q, x, L_lp, R_lp, P_lp, Q_lp);
-    else if (algo == "CPU_lp")
-        maximal_bic_enum(NUM_L, NUM_R, NUM_EDGES, node_r, edge_r, u2L, L, R, P, Q, x, L_lp, R_lp, P_lp, Q_lp);
-    else if (algo == "GPU_1B")
-        stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE, num_blocks_MBE, block_size, kernelArgs_MBE);
-    else if (algo == "GPU")
-        stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE_82, num_blocks_MBE_82, block_size, kernelArgs_MBE_82);
+    if      (algo == "noRS")
+        stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE_noRS , num_blocks_MBE, block_size, kernelArgs_MBE);
+    else if (algo == "noES")
+        stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE_noES , num_blocks_MBE, block_size, kernelArgs_MBE);
+    else if (algo == "noWS")
+        stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE_noWS , num_blocks_MBE, block_size, kernelArgs_MBE);
+    else if (algo == "cuMBE")
+        stat = cudaLaunchCooperativeKernel((void*)CUDA_MBE_cuMBE, num_blocks_MBE, block_size, kernelArgs_MBE);
     
     cudaDeviceSynchronize();
     cudaEventRecord(stop);
@@ -244,28 +198,32 @@ int main(int argc, char* argv[])
 
     // cout << "status: " << stat << endl;
     cout << "maximal bicliques: " << *num_mb << endl;
-#ifdef DEBUG
+#ifdef DESECTION
     long long sum_time_section = 0;
-    cout << "time percentage:" << fixed << setprecision(2);
     for (int i = 0; i < NUM_CLK; i++)
         sum_time_section += time_section[i];
+    cout << "time percentage:" << fixed << setprecision(4);
     for (int i = 0; i < NUM_CLK; i++)
         cout << " " << (double)time_section[i] * 100 / sum_time_section;
     cout << setprecision(6) << endl;
+    // cout << " " << (double)time_section[8] / 1932735283.2 / 246 << "\n";
+    // cout << "runtime (s) (no L): " << (time * ((double)(sum_time_section - time_section[10])) / sum_time_section)/1000 << endl;
+#endif /* DESECTION */
+#ifdef DEBUG
     cout << "runtime (s): " << time/1000 << endl;
-    if (algo == "GPU")
-        cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 10 << ";1H";
+    cout << "\33[" << (numBlocks-1) / WORDS_1ROW + 9 << ";1H";
 #else  /* DEBUG */
     cout << "runtime (s): " << time/1000 << endl;
 #endif /* DEBUG */
 
     fout << "maximal bicliques: " << *num_mb << endl;
-#ifdef DEBUG
-    fout << "time percentage:" << fixed << setprecision(2);
+#ifdef DESECTION
+    fout << "time percentage:" << fixed << setprecision(4);
     for (int i = 0; i < NUM_CLK; i++)
         fout << " " << (double)time_section[i] * 100 / sum_time_section;
     fout << setprecision(6) << endl;
-#endif /* DEBUG */
+    // fout << "runtime (s) (no L): " << (time * ((double)(sum_time_section - time_section[10])) / sum_time_section)/1000 << endl;
+#endif /* DESECTION */
     fout << "runtime (s): " << time/1000 << endl;
 
     cudaFree(tmp);
