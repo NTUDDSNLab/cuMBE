@@ -21,6 +21,8 @@
 ### 0) Create necessary directory
 ```
 cd MBE
+mkdir log
+mkdir bin
 mkdir data
 cd data
 mkdir bi
@@ -33,7 +35,7 @@ mkdir result
 cd data
 wget http://konect.cc/files/download.tsv.youtube-groupmemberships.tar.bz2
 tar xvf download.tsv.youtube-groupmemberships.tar.bz2
-rm tsv.youtube-groupmemberships.tar.bz2
+rm download.tsv.youtube-groupmemberships.tar.bz2
 cd ..
 ```
 
@@ -41,7 +43,10 @@ cd ..
 ```
 cd utils
 g++ gen_bi.cpp -o gen_bi
+
+# There are two interacitve arguments, please refer Detailed Instructions below 
 ./gen_bi ../data/youtube-groupmemberships/out.youtube-groupmemberships ../data/bi/YouTube.bi #details described in below
+
 cd ..
 ```
 
