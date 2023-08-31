@@ -3,7 +3,6 @@
 ## 1. Getting started Instructions.
 - Clone this project
 `git clone git@github.com:NTUDSNLab/MBE.git`
-`cd MBE`
 - Hardware:
     - `CPU x86_64` (Test on Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz)
     - `NVIDIA GPU (arch>=86)` with device memory >= 12GB.(Support NVIDIA RTX3080(sm_86). Note that we mainly evaluate our experience on RTX3090. The execution time could be different with different devices.
@@ -18,6 +17,16 @@
 
 
 ## 2. Environment Setup
+
+### 0) Create necessary directory
+```
+cd MBE
+mkdir data
+cd data
+mkdir bi
+cd ../..
+mkdir result
+```
 
 ### 1) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it (Example with YouTube)
 ```
