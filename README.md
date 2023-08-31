@@ -24,7 +24,7 @@ cd MBE
 mkdir data
 cd data
 mkdir bi
-cd ../..
+cd ..
 mkdir result
 ```
 
