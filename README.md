@@ -18,14 +18,14 @@
 
 ## 2. Setup & Experiments
 
-### (1) Compile source code
+### 1) Compile source code
 Run the makefile to compile source code and create necessary directories:
 ```
 cd MBE
 make
 ```
 
-### (2) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
+### 2) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
 Run the makefile to get all datasets used in paper:
 ```
 cd data
@@ -41,7 +41,7 @@ rm download.tsv.youtube-groupmemberships.tar.bz2
 cd ..
 ```
 
-### (3) Transform the format of dataset with script gen_bi.cpp in /data
+### 3) Transform the format of dataset with script gen_bi.cpp in /data
 Run the makefile to transform the format of bipartite graph datasets from edge-pair to CSR format:
 ```
 cd data
@@ -60,12 +60,12 @@ g++ gen_bi.cpp -o gen_bi
 cd ..
 ```
 
-### (4) Run the python script without any figure
+### 4) Run the python script without any figure
 ```
 python utils/run.py
 ```
 
-### (5) Run plotting script to reproduce the figures in paper.
+### 5) Run plotting script to reproduce the figures in paper.
 ```
 python utils/run.py --func section  # figure will be stored at /MBE/section.png
 python utils/run.py --func variance # figure will be stored at /MBE/variance.png
@@ -73,7 +73,7 @@ python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 
 ## 3. Detailed Instructions
 
-### (1) Selecting specific algorithm and dataset
+### 1) Selecting specific algorithm and dataset
 To run specific algorithms on individual datasets without the need for complex scripts, use the following command format:
 ```
 ./bin/mbe <dataset> <algorithm>
@@ -95,7 +95,7 @@ Here are some command examples:
    ./bin/mbe ./data/bi/BookCrossing.bi noRS
    ```
 
-### (2) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
+### 2) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.  
 `Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
