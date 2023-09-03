@@ -1,9 +1,9 @@
-#include <header.cuh>
-#include <transpose.cuh>
-#include <mbe_cuMBE.cuh>
-#include <mbe_noES.cuh>
-#include <mbe_noRS.cuh>
-#include <mbe_noWS.cuh>
+#include <src/header.cuh>
+#include <src/transpose.cuh>
+#include <src/mbe_cuMBE.cuh>
+#include <src/mbe_noES.cuh>
+#include <src/mbe_noRS.cuh>
+#include <src/mbe_noWS.cuh>
 
 int main(int argc, char* argv[])
 {
