@@ -18,19 +18,21 @@
 
 ## 2. Environment Setup
 
-### 0) Create necessary directory
+### 0) Compile source code and create necessary directories
+Run the makefile:
 ```
 cd MBE
-mkdir log
-mkdir bin
-mkdir data
-cd data
-mkdir bi
-cd ..
-mkdir result
+make
 ```
 
-### 1) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it (Example with YouTube)
+### 1) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
+Run the makefile to get all datasets used in paper:
+```
+cd data
+make dataset
+cd ..
+```
+Or run the following commands: (Example with YouTube)
 ```
 cd data
 wget http://konect.cc/files/download.tsv.youtube-groupmemberships.tar.bz2
@@ -39,13 +41,21 @@ rm download.tsv.youtube-groupmemberships.tar.bz2
 cd ..
 ```
 
-### 2) Transform the format of dataset with script gen_bi.cpp in /utils
+### 2) Transform the format of dataset with script gen_bi.cpp in /data
+Run the makefile to transform the format of bipartite graph datasets from edge-pair to CSR format:
 ```
-cd utils
+cd data
+make bipartite
+cd ..
+```
+Or run the following commands: (Example with YouTube)
+```
+cd data
+mkdir bi
 g++ gen_bi.cpp -o gen_bi
 
 # There are two interacitve arguments, please refer Detailed Instructions below 
-./gen_bi ../data/youtube-groupmemberships/out.youtube-groupmemberships ../data/bi/YouTube.bi #details described in below
+./gen_bi ./youtube-groupmemberships/out.youtube-groupmemberships ./bi/YouTube.bi #details described in below
 
 cd ..
 ```
