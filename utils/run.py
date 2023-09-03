@@ -32,12 +32,12 @@ elif args.func == 'variance':
     for data in datas:
         print('\33[33m------ {} ------\33[0m'.format(data))
         for algo in algos:
-            os.system('./bin/mbe_variance {}/{}.bi {} >> result/{}_{}_variance'.format(args.dataDir, data, algo, data, algo))
+            os.system('./bin/mbe_devariance {}/{}.bi {} >> result/{}_{}_variance'.format(args.dataDir, data, algo, data, algo))
 elif args.func == 'section':
     for data in datas:
         print('\33[33m------ {} ------\33[0m'.format(data))
         for algo in algos:
-            os.system('./bin/mbe_section {}/{}.bi {} >> result/{}_{}_section'.format(args.dataDir, data, algo, data, algo))
+            os.system('./bin/mbe_desection {}/{}.bi {} >> result/{}_{}_section'.format(args.dataDir, data, algo, data, algo))
 
 if args.func == None:
     pass
