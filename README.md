@@ -32,7 +32,7 @@ cd data
 make dataset
 cd ..
 ```
-Or run the following commands: (Example with **YouTube**)
+Or run the following commands: (Example with *YouTube*)
 ```
 cd data
 wget http://konect.cc/files/download.tsv.youtube-groupmemberships.tar.bz2
@@ -48,7 +48,7 @@ cd data
 make bipartite
 cd ..
 ```
-Or run the following commands: (Example with **YouTube**)
+Or run the following commands: (Example with *YouTube*)
 ```
 cd data
 mkdir bi
@@ -107,11 +107,11 @@ There are four <algorithm> options available:
 - `noWS`: cuMBE without using WS.
 
 Here are some command examples:
-- To run cuMBE on the **YouTube.bi** dataset:
+- To run cuMBE on the YouTube.bi dataset:
    ```
    ./bin/mbe ./data/bi/YouTube.bi cuMBE
    ```
-- To run cuMBE without RS on the **BookCrossing.bi** dataset:
+- To run cuMBE without RS on the BookCrossing.bi dataset:
    ```
    ./bin/mbe ./data/bi/BookCrossing.bi noRS
    ```
