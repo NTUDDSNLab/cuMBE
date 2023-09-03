@@ -21,8 +21,16 @@ int main(int argc, char* argv[])
 	int num_passed_words, num_passed_words_per_edge;
 	
 	// ----- Something needed to be passed ----- //
-	cout << "Number of passed words: ";          cin >> num_passed_words;
-	cout << "Number of passed words per edge: "; cin >> num_passed_words_per_edge;
+	cout << "Number of passed words: ";
+	if (argv[3])
+		cout << (num_passed_words = atoi(argv[3])) << "\n";
+	else
+		cin >> num_passed_words;
+	cout << "Number of passed words per edge: ";
+	if (argv[4])
+		cout << (num_passed_words_per_edge = atoi(argv[4])) << "\n";
+	else
+		cin >> num_passed_words_per_edge;
 	for (int i = 0; i < num_passed_words; i++) fin >> _;
 
 	map<int, int> row_id, col_id;

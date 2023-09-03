@@ -78,9 +78,8 @@ df = pd.DataFrame(columns=['dataset', 'clock', 'work_stealing'])
 for data in datas:
     ori_br = open("result/{}_cuMBE_variance".format(data), "r")
     lines = ori_br.readlines()
-    del lines[0:5]
-    del lines[-1]
-    del lines[-1]
+    del lines[  :5]
+    del lines[-2: ]
     res = [eval(i) for i in lines]
     sum = 0
     for num in res:
@@ -93,9 +92,8 @@ for data in datas:
 for data in datas:
     ori_br = open("result/{}_noWS_variance".format(data), "r")
     lines = ori_br.readlines()
-    del lines[0:5]
-    del lines[-1]
-    del lines[-1]
+    del lines[  :5]
+    del lines[-2: ]
     res = [eval(i) for i in lines]
     sum = 0
     for num in res:
@@ -103,51 +101,45 @@ for data in datas:
 
     data_exts[datas.index(data)] = (min(res)/sum, max(res)/sum)
     data_stdevs_noWS.append(np.std(res)/sum)
-    if data == 'Unicode':
-        for line in res:
-            new_clock = min(res)/sum/0.0625*0.1625 if line/sum < 0.1625 else line/sum
-            df = df.append({'dataset':'{}'.format(data), 'clock':new_clock, 'work_stealing': 'noWS'}, ignore_index=True)
-    elif data == 'corporate-leadership':
-        for line in res:
-            new_clock = max(res)/sum/16*8 if line/sum > 8 else line/sum
-            df = df.append({'dataset':'{}'.format(data), 'clock':new_clock, 'work_stealing': 'noWS'}, ignore_index=True)
-    else:
-        for line in res:
-            df = df.append({'dataset':'{}'.format(data), 'clock':line/sum, 'work_stealing': 'noWS'}, ignore_index=True)
+    # if data == 'Unicode':
+    #     for line in res:
+    #         new_clock = min(res)/sum/0.0625*0.1625 if line/sum < 0.1625 else line/sum
+    #         df = df.append({'dataset':'{}'.format(data), 'clock':new_clock, 'work_stealing': 'noWS'}, ignore_index=True)
+    # elif data == 'corporate-leadership':
+    #     for line in res:
+    #         new_clock = max(res)/sum/16*8 if line/sum > 8 else line/sum
+    #         df = df.append({'dataset':'{}'.format(data), 'clock':new_clock, 'work_stealing': 'noWS'}, ignore_index=True)
+    # else:
+    #     for line in res:
+    #         df = df.append({'dataset':'{}'.format(data), 'clock':line/sum, 'work_stealing': 'noWS'}, ignore_index=True)
+    for line in res:
+        df = df.append({'dataset':'{}'.format(data), 'clock':line/sum, 'work_stealing': 'noWS'}, ignore_index=True)
 
 # print(data_exts)
 print('[Standard Deviation]')
-# print(data_stdevs_WS)
 print('  WS:', min(data_stdevs_WS), '~', max(data_stdevs_WS))
-# print(data_stdevs_noWS)
 print('noWS:', min(data_stdevs_noWS), '~', max(data_stdevs_noWS))
 
-# my_fig = sns.boxplot(x="dataset", y="clock", hue="work_stealing", data=df, showfliers=False, width=0.6)
-# cut_at(len(datas)-1 + 0.15,0.17,0.2,1.08)
 my_fig = sns.boxplot(x="dataset", y="clock", hue="work_stealing", data=df, showfliers=False, width=0.4, whis=float("inf"))
-cut_at(datas.index('Unicode') + 0.1, 0.17, 0.16, 1.06)
-# cut_at(datas.index('corporate-leadership') + 0.1, (data_exts[datas.index('corporate-leadership')][1]/16*8*data_exts[datas.index('movielens-u-i')][1])**0.5, 0.16, 1.058)
-cut_at(datas.index('corporate-leadership') + 0.1, (21/16*8*6)**0.5, 0.16, 1.06)
+# cut_at(datas.index('Unicode') + 0.1, 0.17, 0.16, 1.06)
+# cut_at(datas.index('corporate-leadership') + 0.1, (21/16*8*6)**0.5, 0.16, 1.06)
 adjust_boxplots(fig, shift_dist=0.075)
 
 xticklabel_objects = my_fig.set_xticklabels(my_fig.get_xticklabels(), fontsize=9)
 xticklabel_objects[datas.index('corporate-leadership')].set_fontsize(7.8)
 plt.grid(axis='y', linestyle='--', color='grey')
 
-# y_ticks = [2**i for i in range(-3, int(np.log2(max(df['clock'])))+1)]
-y_ticks = [2**i for i in range(-3, 5)]
-y_ticks[0] = 0.05/0.0625*0.1625
-y_ticks[-1] = 21/16*8
-y_ticks[-2] = 6
+y_ticks = [2**i for i in range(-3, int(np.log2(max(df['clock'])))+1)]
+# y_ticks = [2**i for i in range(-3, 5)]
+# y_ticks[0] = 0.05/0.0625*0.1625
+# y_ticks[-1] = 21/16*8
+# y_ticks[-2] = 6
 plt.xticks()
 
 plt.yscale('log', base=2)
-#y_ticks = [2**i for i in range(-4, int(np.log2(max(df['clock'])))+1)]
-#y_labels =  [f'{tick:.3f}' for tick in y_ticks] # 将标签格式化为小数形式
-#y_labels = [f'{int(tick)}' if tick == int(tick) else f'{tick:.3f}' for tick in y_ticks]
 y_labels = [f'{tick:.3f}'.rstrip('0').rstrip('.') if tick != int(tick) else f'{int(tick)}' for tick in y_ticks]
-y_labels[0] = 0.05
-y_labels[-1] = 21
+# y_labels[0] = 0.05
+# y_labels[-1] = 21
 
 plt.yticks(y_ticks, y_labels)
 
@@ -162,7 +154,6 @@ ax.set_ylim(ax.get_ylim())
 # for dir in ['top','bottom','left','right']:
 #     ax.spines[dir].set_linewidth(1)
 
-# plt.yticks(y_ticks, [f'$2^{i}$' for i in range(-3, len(y_ticks)-3)], fontsize=15)
 plt.xlabel(None)
 plt.ylabel('Workload distribution among TBs (normalized to average)')
 plt.legend(loc='best', fontsize=12)

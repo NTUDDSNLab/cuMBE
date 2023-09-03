@@ -50,10 +50,10 @@ typedef struct {
 	int length;    // Number of adjacent nodes 
 } Node;
 
-typedef struct {
-	unordered_set<int> L;
-	unordered_set<int> R;
-} Biclique;
+// typedef struct {
+// 	unordered_set<int> L;
+// 	unordered_set<int> R;
+// } Biclique;
 
 template <class T>
 void my_memset(T *SA, T val, int len) {

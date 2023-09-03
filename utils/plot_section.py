@@ -5,8 +5,6 @@ import numpy as np
 algorithms = ['noRS', 'noES', 'noWS', 'cuMBE']
 sections = ['L\' Construction', 'Maximality Checking', 'Maximality Expansion', 'Candidate Selection', 'Subtree Fetching', 'Work-stealing', 'Others']
 ingredients = [[3], [4], [5], [7], [8], [2, 9], 0]
-# sections = ['Candidate Selection', 'L\' Construction', 'Maximality Checking', 'Maximality Expansion', 'Subtree Fetching', 'Work-stealing', 'Others']
-# ingredients = [[7], [3], [4], [5], [8], [2, 9], 0]
 datasets = [
     'DBLP-author'         ,
     'DBpedia_locations'   ,
@@ -23,7 +21,7 @@ datasets = [
     'Unicode'             ,
 ]
 
-execution_times = [
+execution_times = [ # default result
 #   [     'noRS',      'noES',     'noWS',    'cuMBE', ] (seconds)
     [3246.625488,  228.884415, 222.518433, 228.360321, ], # 'DBLP-author'
     [   1.364625,    0.112622,   0.095693,   0.108761, ], # 'DBpedia_locations'
@@ -43,7 +41,7 @@ execution_times = [
 # 每個 code section 在不同 dataset 上的執行時間比例 (單位: %)
 # log file 中的 section time 有 (0) ~ (10) 共 11 個
 # execution_sections 分別填入 [(7), (3), (4), (5), (8), (2)+(9), 0 或是 (0)+(1)+(6)+(10)]
-execution_sections = [
+execution_sections = [ # default result
     [ # 'DBLP-author'
     [0.05  , 0.04  , 98.60  , 0.03  ,  1.14  , 0.08  +0.05  , 0],   # 'noRS'
     [1.4681, 0.7620,  0.6922, 2.0126, 92.1095, 1.0998+0.7151, 0],   # 'noES'
@@ -139,6 +137,10 @@ broken_target = [
 
 # 從 result file 取得 runtime 相關數據
 def get_from_result_files():
+    execution_sections = [[[0 for x in sections] for y in algorithms] for z in datasets]
+    execution_times    = [[0                     for y in algorithms] for z in datasets]
+    print(np.shape(execution_sections))
+    print(np.shape(execution_times))
     for dataset_index in range(len(datasets)):
         for algorithm_index in range(len(algorithms)):
             result = open("result/{}_{}_section".format(datasets[dataset_index], algorithms[algorithm_index]), "r")
@@ -181,6 +183,7 @@ fig = plt.figure(figsize=(subplot_size[1]*(1 + len(algorithms)*0.5), subplot_siz
 
 # 從 result file 取得 runtime 相關數據
 get_from_result_files()
+
 # 轉置 execution_sections 的軸 1、軸 2，以供 ax.bar() 作圖
 # shape: (len(datasets), len(algorithms), len(sections)) ---> (len(datasets), len(sections), len(algorithms))
 for dataset_index in range(len(datasets)):
@@ -216,8 +219,8 @@ for i in range(subplot_size[0]):
         dataset_execution_times = execution_times[dataset_index]
         # 此 dataset 的每個 algorithm 的 bottom_value，繪製 bar 時使用
         bottom_values = np.zeros(len(algorithms))
-        # 此 dataset 的 broken_dataset 的 index
-        broken_index = broken_datasets[dataset_index] # fake broken axis
+        # # 此 dataset 的 broken_dataset 的 index
+        # broken_index = broken_datasets[dataset_index] # fake broken axis
 
 
         # 迭代不同 section
@@ -227,11 +230,11 @@ for i in range(subplot_size[0]):
             bar_lengths = [(section_ratios[x] * dataset_execution_times[x] / 100) for x in range(len(algorithms))]
             print("    Section: {}".format(sections[k]))
             print("        {}".format(bar_lengths))
-            # 如果此 dataset 的此 algorithm 的此 section 需要做 broken axis 處理，減少此 bar 長度
-            if broken_index != -1:
-                for x in range(len(algorithms)):
-                    if k == broken_target[broken_index][x]:
-                        bar_lengths[x] -= broken_length[broken_index]
+            # # 如果此 dataset 的此 algorithm 的此 section 需要做 broken axis 處理，減少此 bar 長度
+            # if broken_index != -1:
+            #     for x in range(len(algorithms)):
+            #         if k == broken_target[broken_index][x]:
+            #             bar_lengths[x] -= broken_length[broken_index]
             
             # 繪製所有 algorithm 的此 section 的執行時間的 bar
             ax.bar(x_index, bar_lengths, bar_width, color=colors[k], label=sections[k], bottom=bottom_values, edgecolor='black')
@@ -239,27 +242,27 @@ for i in range(subplot_size[0]):
             bottom_values += bar_lengths
         
 
-        # 如果此 dataset 需要做 broken axis 處理
-        if broken_index != -1:
+        # # 如果此 dataset 需要做 broken axis 處理
+        # if broken_index != -1:
 
-            plt.draw() # 使 ax.get_yticklabels() 可用
-            # 獲取預設的 yticks 的數值
-            broken_ylabels = [item.get_text() for item in ax.get_yticklabels()]
-            # 獲取預設的 yticks 的小數點後精度
-            precision = 0 if broken_ylabels[0].rfind('.') == -1 else len(broken_ylabels[0]) - broken_ylabels[0].rfind('.') - 1
+        #     plt.draw() # 使 ax.get_yticklabels() 可用
+        #     # 獲取預設的 yticks 的數值
+        #     broken_ylabels = [item.get_text() for item in ax.get_yticklabels()]
+        #     # 獲取預設的 yticks 的小數點後精度
+        #     precision = 0 if broken_ylabels[0].rfind('.') == -1 else len(broken_ylabels[0]) - broken_ylabels[0].rfind('.') - 1
 
-            # 修正 broken point 以上的 yticks 的 label 數值
-            for y in range(len(broken_ylabels)):
-                if (float(broken_ylabels[y]) >= broken_location[broken_index]):
-                    new_value = float(broken_ylabels[y]) + broken_length[broken_index]
-                    broken_ylabels[y] = f"{new_value:.{precision}f}"
-            # yticks 的 label 設為修改後的版本
-            ax.set_yticklabels(broken_ylabels)
+        #     # 修正 broken point 以上的 yticks 的 label 數值
+        #     for y in range(len(broken_ylabels)):
+        #         if (float(broken_ylabels[y]) >= broken_location[broken_index]):
+        #             new_value = float(broken_ylabels[y]) + broken_length[broken_index]
+        #             broken_ylabels[y] = f"{new_value:.{precision}f}"
+        #     # yticks 的 label 設為修改後的版本
+        #     ax.set_yticklabels(broken_ylabels)
 
-            # 若此 algorithm 有 broken point，在 subplot 的對應位置繪製
-            for x in range(len(algorithms)):
-                if bottom_values[x] >= broken_location[broken_index]:
-                    cut_at(x, broken_location[broken_index], bar_width*1.2, ax.get_ylim()[1]*0.025)
+        #     # 若此 algorithm 有 broken point，在 subplot 的對應位置繪製
+        #     for x in range(len(algorithms)):
+        #         if bottom_values[x] >= broken_location[broken_index]:
+        #             cut_at(x, broken_location[broken_index], bar_width*1.2, ax.get_ylim()[1]*0.025)
         
 
         # 微調 subplot 性質
@@ -270,7 +273,7 @@ for i in range(subplot_size[0]):
             ax.set_ylabel('Execution Time (seconds)')
 
 
-# # 繪製 legend 於整張 figure 右下角 (以 bbox_to_anchor 微調位置)
+# 繪製 legend 於整張 figure 右下角 (以 bbox_to_anchor 微調位置)
 handles, labels = ax.get_legend_handles_labels()
 fig.legend(handles, labels, fontsize=12, loc='lower right', bbox_to_anchor=(0.987,0.039))
 

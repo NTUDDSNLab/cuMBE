@@ -2,7 +2,7 @@ import argparse
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--dataDir", type=str, default='./data', help="the path to datasets")
+parser.add_argument("--dataDir", type=str, default='./data/bi', help="the path to datasets")
 parser.add_argument("--func", type=str, choices=['variance', 'section'], help="the function of this script")
 args = parser.parse_args()
 
@@ -24,22 +24,20 @@ datas = [
 ]
 
 if args.func == None:
-    os.system('make')
+    for data in datas:
+        print('\33[33m------ {} ------\33[0m'.format(data))
+        for algo in algos:
+            os.system('./bin/mbe {}/{}.bi {}'.format(args.dataDir, data, algo))
 elif args.func == 'variance':
-    os.system('make devariance')
+    for data in datas:
+        print('\33[33m------ {} ------\33[0m'.format(data))
+        for algo in algos:
+            os.system('./bin/mbe_variance {}/{}.bi {} >> result/{}_{}_variance'.format(args.dataDir, data, algo, data, algo))
 elif args.func == 'section':
-    os.system('make desection')
-
-if args.func == 'variance':
     for data in datas:
         print('\33[33m------ {} ------\33[0m'.format(data))
         for algo in algos:
-            os.system('./bin/mbe {}/{}.bi {} >> result/{}_{}_variance'.format(args.dataDir, data, algo, data, algo))
-else:
-    for data in datas:
-        print('\33[33m------ {} ------\33[0m'.format(data))
-        for algo in algos:
-            os.system('./bin/mbe {}/{}.bi {} >> result/{}_{}_section'.format(args.dataDir, data, algo))
+            os.system('./bin/mbe_section {}/{}.bi {} >> result/{}_{}_section'.format(args.dataDir, data, algo, data, algo))
 
 if args.func == None:
     pass
