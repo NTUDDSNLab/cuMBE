@@ -1,6 +1,6 @@
 # cuMBE: Accelerating Maixmal Biclique Enumeration on GPUs
 
-## 1. Getting started Instructions.
+## Getting started Instructions.
 - Clone this project
 `git clone git@github.com:NTUDSNLab/MBE.git`
 - Hardware:
@@ -16,10 +16,10 @@
     - `data/`: contains the datasets you may want to try.
 
 
-## 2. Environment Setup
+## Setup & Usage
 
-### 0) Compile source code and create necessary directories
-Run the makefile:
+### 0) Compile source code
+Run the makefile to compile source code and create necessary directories:
 ```
 cd MBE
 make
@@ -32,7 +32,7 @@ cd data
 make dataset
 cd ..
 ```
-Or run the following commands: (Example with YouTube)
+Or run the following commands: (Example with **YouTube**)
 ```
 cd data
 wget http://konect.cc/files/download.tsv.youtube-groupmemberships.tar.bz2
@@ -48,7 +48,7 @@ cd data
 make bipartite
 cd ..
 ```
-Or run the following commands: (Example with YouTube)
+Or run the following commands: (Example with **YouTube**)
 ```
 cd data
 mkdir bi
@@ -71,10 +71,9 @@ python utils/run.py --func section  # figure will be stored at /MBE/section.png
 python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 ```
 
+## Detailed Instructions
 
-## 3. Detailed Instructions
-
-### 1) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
+### 0) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.  
 `Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
@@ -94,3 +93,28 @@ python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 | movielens-u-t        | 3                      | 2                               |
 | UCforum              | 7                      | 2                               |
 | Unicode              | 3                      | 1                               |
+
+### 1) Selecting specific algorithm and dataset
+To run specific algorithms on individual datasets without the need for complex scripts, use the following command format:
+```
+./bin/mbe <dataset> <algorithm>
+```
+
+There are four <algorithm> options available:
+- `cuMBE`: CUDA-accelerated MBE.
+- `noRS`: cuMBE without using RS.
+- `noES`: cuMBE without using ES.
+- `noWS`: cuMBE without using WS.
+
+Here are some command examples:
+- To run cuMBE on the **YouTube.bi** dataset:
+   ```
+   ./bin/mbe ./data/bi/YouTube.bi cuMBE
+   ```
+- To run cuMBE without RS on the **BookCrossing.bi** dataset:
+   ```
+   ./bin/mbe ./data/bi/BookCrossing.bi noRS
+   ```
+
+## Citation
+If you use this project in your research, please cite [our paper](https://scholar.google.com.tw/citations?user=4ypE90IAAAAJ&hl=zh-TW&oi=sra).
