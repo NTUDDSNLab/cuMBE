@@ -72,12 +72,12 @@ python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 | Dataset              | Number of passed words | Number of passed words per edge |
 |----------------------|------------------------|---------------------------------|
 | DBLP-author          | 7                      | 0                               |
-| DBpedia_locations    | 3                      | 0                               |
+| DBpedia_locations    | 7                      | 0                               |
 | Marvel               | 3                      | 0                               |
 | YouTube              | 3                      | 0                               |
 | IMDB-actor           | 3                      | 0                               |
 | stackoverflow        | 7                      | 2                               |
-| BookCrossing         | 3                      | 0                               |
+| BookCrossing         | 7                      | 0                               |
 | corporate-leadership | 7                      | 0                               |
 | movielens-t-i        | 3                      | 2                               |
 | movielens-u-i        | 3                      | 2                               |
