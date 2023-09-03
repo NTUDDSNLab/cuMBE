@@ -1,6 +1,6 @@
 # cuMBE: Accelerating Maixmal Biclique Enumeration on GPUs
 
-## Getting started Instructions.
+## 1. Getting started Instructions.
 - Clone this project
 `git clone git@github.com:NTUDSNLab/MBE.git`
 - Hardware:
@@ -16,16 +16,16 @@
     - `data/`: contains the datasets you may want to try.
 
 
-## Setup & Usage
+## 2. Setup & Experiments
 
-### 0) Compile source code
+### (1) Compile source code
 Run the makefile to compile source code and create necessary directories:
 ```
 cd MBE
 make
 ```
 
-### 1) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
+### (2) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
 Run the makefile to get all datasets used in paper:
 ```
 cd data
@@ -41,7 +41,7 @@ rm download.tsv.youtube-groupmemberships.tar.bz2
 cd ..
 ```
 
-### 2) Transform the format of dataset with script gen_bi.cpp in /data
+### (3) Transform the format of dataset with script gen_bi.cpp in /data
 Run the makefile to transform the format of bipartite graph datasets from edge-pair to CSR format:
 ```
 cd data
@@ -54,47 +54,26 @@ cd data
 mkdir bi
 g++ gen_bi.cpp -o gen_bi
 
-# There are two interacitve arguments, please refer Detailed Instructions below 
-./gen_bi ./youtube-groupmemberships/out.youtube-groupmemberships ./bi/YouTube.bi #details described in below
+# There are two interacitve arguments. Details described in 3.(2)
+./gen_bi ./youtube-groupmemberships/out.youtube-groupmemberships ./bi/YouTube.bi
 
 cd ..
 ```
 
-### 3) Run the python script without any figure
+### (4) Run the python script without any figure
 ```
 python utils/run.py
 ```
 
-### 4) Run plotting script to reproduce the figures in paper.
+### (5) Run plotting script to reproduce the figures in paper.
 ```
 python utils/run.py --func section  # figure will be stored at /MBE/section.png
 python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 ```
 
-## Detailed Instructions
+## 3. Detailed Instructions
 
-### 0) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
-
-`Number of passed words`: the words need to be ignored from the beginning of the input file.  
-`Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
-
-| Dataset              | Number of passed words | Number of passed words per edge |
-|----------------------|------------------------|---------------------------------|
-| DBLP-author          | 7                      | 0                               |
-| DBpedia_locations    | 7                      | 0                               |
-| Marvel               | 3                      | 0                               |
-| YouTube              | 3                      | 0                               |
-| IMDB-actor           | 3                      | 0                               |
-| stackoverflow        | 7                      | 2                               |
-| BookCrossing         | 7                      | 0                               |
-| corporate-leadership | 7                      | 0                               |
-| movielens-t-i        | 3                      | 2                               |
-| movielens-u-i        | 3                      | 2                               |
-| movielens-u-t        | 3                      | 2                               |
-| UCforum              | 7                      | 2                               |
-| Unicode              | 3                      | 1                               |
-
-### 1) Selecting specific algorithm and dataset
+### (1) Selecting specific algorithm and dataset
 To run specific algorithms on individual datasets without the need for complex scripts, use the following command format:
 ```
 ./bin/mbe <dataset> <algorithm>
@@ -116,5 +95,26 @@ Here are some command examples:
    ./bin/mbe ./data/bi/BookCrossing.bi noRS
    ```
 
-## Citation
+### (2) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
+
+`Number of passed words`: the words need to be ignored from the beginning of the input file.  
+`Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
+
+| Dataset              | Number of passed words | Number of passed words per edge |
+|----------------------|------------------------|---------------------------------|
+| DBLP-author          | 7                      | 0                               |
+| DBpedia_locations    | 7                      | 0                               |
+| Marvel               | 3                      | 0                               |
+| YouTube              | 3                      | 0                               |
+| IMDB-actor           | 3                      | 0                               |
+| stackoverflow        | 7                      | 2                               |
+| BookCrossing         | 7                      | 0                               |
+| corporate-leadership | 7                      | 0                               |
+| movielens-t-i        | 3                      | 2                               |
+| movielens-u-i        | 3                      | 2                               |
+| movielens-u-t        | 3                      | 2                               |
+| UCforum              | 7                      | 2                               |
+| Unicode              | 3                      | 1                               |
+
+## 4. Citation
 If you use this project in your research, please cite [our paper](https://scholar.google.com.tw/citations?user=4ypE90IAAAAJ&hl=zh-TW&oi=sra).
