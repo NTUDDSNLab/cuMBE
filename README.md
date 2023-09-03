@@ -67,6 +67,7 @@ python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 ### 1) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.
+
 `Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
 
 | Dataset              | Number of passed words: | Number of passed words per edge: |
