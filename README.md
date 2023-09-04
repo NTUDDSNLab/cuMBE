@@ -16,23 +16,23 @@
     - `data/`: contains the datasets you may want to try.
 
 
-## 2. Environment Setup
+## 2. Setup & Experiments
 
-### 0) Compile source code and create necessary directories
-Run the makefile:
+### (1) Compile source code
+Run the makefile to compile source code and create necessary directories:
 ```
 cd MBE
 make
 ```
 
-### 1) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
+### (2) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
 Run the makefile to get all datasets used in paper:
 ```
 cd data
 make dataset
 cd ..
 ```
-Or run the following commands: (Example with YouTube)
+Or run the following commands: (Example with *YouTube*)
 ```
 cd data
 wget http://konect.cc/files/download.tsv.youtube-groupmemberships.tar.bz2
@@ -41,40 +41,61 @@ rm download.tsv.youtube-groupmemberships.tar.bz2
 cd ..
 ```
 
-### 2) Transform the format of dataset with script gen_bi.cpp in /data
+### (3) Transform the format of dataset with script gen_bi.cpp in /data
 Run the makefile to transform the format of bipartite graph datasets from edge-pair to CSR format:
 ```
 cd data
 make bipartite
 cd ..
 ```
-Or run the following commands: (Example with YouTube)
+Or run the following commands: (Example with *YouTube*)
 ```
 cd data
 mkdir bi
 g++ gen_bi.cpp -o gen_bi
 
-# There are two interacitve arguments, please refer Detailed Instructions below 
-./gen_bi ./youtube-groupmemberships/out.youtube-groupmemberships ./bi/YouTube.bi #details described in below
+# There are two interacitve arguments. Details described in 3.(2)
+./gen_bi ./youtube-groupmemberships/out.youtube-groupmemberships ./bi/YouTube.bi
 
 cd ..
 ```
 
-### 3) Run the python script without any figure
+### (4) Run the python script without any figure
 ```
 python utils/run.py
 ```
 
-### 4) Run plotting script to reproduce the figures in paper.
+### (5) Run plotting script to reproduce the figures in paper.
 ```
 python utils/run.py --func section  # figure will be stored at /MBE/section.png
 python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 ```
 
-
 ## 3. Detailed Instructions
 
-### 1) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
+### (1) Selecting specific algorithm and dataset
+To run specific algorithms on individual datasets without the need for complex scripts, use the following command format:
+```
+./bin/mbe <dataset> <algorithm>
+```
+
+There are four <algorithm> options available:
+- `cuMBE`: CUDA-accelerated MBE.
+- `noRS`: cuMBE without using RS.
+- `noES`: cuMBE without using ES.
+- `noWS`: cuMBE without using WS.
+
+Here are some command examples:
+- To run cuMBE on the YouTube.bi dataset:
+   ```
+   ./bin/mbe ./data/bi/YouTube.bi cuMBE
+   ```
+- To run cuMBE without RS on the BookCrossing.bi dataset:
+   ```
+   ./bin/mbe ./data/bi/BookCrossing.bi noRS
+   ```
+
+### (2) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.  
 `Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
@@ -94,3 +115,6 @@ python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 | movielens-u-t        | 3                      | 2                               |
 | UCforum              | 7                      | 2                               |
 | Unicode              | 3                      | 1                               |
+
+## 4. Citation
+If you use this project in your research, please cite [our paper](https://scholar.google.com.tw/citations?user=4ypE90IAAAAJ&hl=zh-TW&oi=sra).
