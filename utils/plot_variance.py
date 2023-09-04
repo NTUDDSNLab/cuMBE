@@ -1,16 +1,12 @@
-import argparse
 import numpy as np
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
-import matplotlib.pyplot as plt
-import os
-import re
 import seaborn as sns
-import glob
-import dask.dataframe as dd
+import math
+import matplotlib.pyplot as plt
 import matplotlib.patches as plt_patches
 import matplotlib.lines as plt_lines
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from numpy import loadtxt
 
@@ -68,7 +64,6 @@ datas = [
     'UCforum'             ,
     'Unicode'             ,
 ]
-# fig, ax = plt.subplots(figsize=(30, 8))
 fig, ax = plt.subplots(figsize=(22.5, 6))
 
 data_exts = [(-100, +100) for x in range(len(datas))]
@@ -129,14 +124,14 @@ xticklabel_objects = my_fig.set_xticklabels(my_fig.get_xticklabels(), fontsize=9
 xticklabel_objects[datas.index('corporate-leadership')].set_fontsize(7.8)
 plt.grid(axis='y', linestyle='--', color='grey')
 
-y_ticks = [2**i for i in range(-3, int(np.log2(max(df['clock'])))+1)]
+plt.yscale('log', base=2)
+
+y_ticks = [2**i for i in range(math.ceil(np.log2(ax.get_ylim()[0])), math.ceil(np.log2(ax.get_ylim()[1])))]
 # y_ticks = [2**i for i in range(-3, 5)]
 # y_ticks[0] = 0.05/0.0625*0.1625
 # y_ticks[-1] = 21/16*8
 # y_ticks[-2] = 6
 plt.xticks()
-
-plt.yscale('log', base=2)
 y_labels = [f'{tick:.3f}'.rstrip('0').rstrip('.') if tick != int(tick) else f'{int(tick)}' for tick in y_ticks]
 # y_labels[0] = 0.05
 # y_labels[-1] = 21
@@ -148,7 +143,6 @@ ax.set_xticks(np.arange(-0.5, len(datas)+0.5, 1), minor=True)
 ax.tick_params(axis='x', which='minor', length=18, width=0.75)
 ax.tick_params(axis='x', which='major', bottom=False)
 ax.set_xlim(-0.5, len(datas)-0.5)
-ax.set_ylim(ax.get_ylim())
 # for x in np.arange(0.5, len(datas)-0.5, 1):
 #     plt.plot([x, x], ax.get_ylim(), color='black', linewidth=0.75)
 # for dir in ['top','bottom','left','right']:

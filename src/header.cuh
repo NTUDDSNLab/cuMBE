@@ -1,14 +1,5 @@
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <math.h>
 #include <bits/stdc++.h>
 #include <cooperative_groups.h>
-#include <sys/ioctl.h>
 using namespace std;
 using namespace std::chrono;
 using namespace cooperative_groups;
