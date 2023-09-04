@@ -122,19 +122,6 @@ execution_sections = [ # default result
     ],
 ]
 
-# broken_datasets: 所有 dataset 對應 broken_location/length/target 的 index (-1 表示無 broken axis)
-# broken_location: broken point 實際位置 (在 subplot 上作圖的位置)
-# broken_length  : broken point 所省略的長度
-# broken_target  : 所有 algorithm 對應的 broken point 分別位於哪個 section，
-#                  2 表示 broken point 位於 sections[2]，-1 表示此 algorithm 無 broken point
-broken_datasets = [0, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-broken_location = [350, 0.175]
-broken_length = [2700, 1.05]
-broken_target = [
-    [sections.index('Maximality Expansion'), -1, -1, -1],
-    [sections.index('Maximality Expansion'), -1, -1, -1],
-]
-
 # 從 result file 取得 runtime 相關數據
 def get_from_result_files():
     execution_sections = [[[0 for x in sections] for y in algorithms] for z in datasets]
@@ -169,11 +156,7 @@ def cut_at(cut_x, cut_y, cut_w, cut_h):
     ax.plot(x[-2: ], y[-2: ], color='black')
 
 # 各 section 顏色
-# colors = ['#F43545', '#FF8901', '#00BA71', '#00C2DE', '#00418D', '#5F2879', '#292421']
-# colors = ['#DC6464', '#DCDC64', '#64DC64', '#64DCDC', '#6464DC', '#DC64DC', '#606060']
-# colors = ['#E84C54', '#EDB232', '#64DC64', '#64DCDC', '#6464DC', '#9D46AA', '#606060']
 colors = ['#ef1010', '#eeb711', '#0dbf0d', '#0dbfbf', '#1111ee', '#b50db5', '#606060']
-# colors = ['#b50db5', '#d72828', '#eeb711', '#0dbf0d', '#0fd7d7', '#1111ee', '#606060']
 
 # 整張 figure 直向橫向有幾張 subplot (直, 橫)
 subplot_size = (2, 7)
@@ -219,8 +202,6 @@ for i in range(subplot_size[0]):
         dataset_execution_times = execution_times[dataset_index]
         # 此 dataset 的每個 algorithm 的 bottom_value，繪製 bar 時使用
         bottom_values = np.zeros(len(algorithms))
-        # # 此 dataset 的 broken_dataset 的 index
-        # broken_index = broken_datasets[dataset_index] # fake broken axis
 
 
         # 迭代不同 section
@@ -230,39 +211,11 @@ for i in range(subplot_size[0]):
             bar_lengths = [(section_ratios[x] * dataset_execution_times[x] / 100) for x in range(len(algorithms))]
             print("    Section: {}".format(sections[k]))
             print("        {}".format(bar_lengths))
-            # # 如果此 dataset 的此 algorithm 的此 section 需要做 broken axis 處理，減少此 bar 長度
-            # if broken_index != -1:
-            #     for x in range(len(algorithms)):
-            #         if k == broken_target[broken_index][x]:
-            #             bar_lengths[x] -= broken_length[broken_index]
             
             # 繪製所有 algorithm 的此 section 的執行時間的 bar
             ax.bar(x_index, bar_lengths, bar_width, color=colors[k], label=sections[k], bottom=bottom_values, edgecolor='black')
             # 下個 section 的 bar 的起始點
             bottom_values += bar_lengths
-        
-
-        # # 如果此 dataset 需要做 broken axis 處理
-        # if broken_index != -1:
-
-        #     plt.draw() # 使 ax.get_yticklabels() 可用
-        #     # 獲取預設的 yticks 的數值
-        #     broken_ylabels = [item.get_text() for item in ax.get_yticklabels()]
-        #     # 獲取預設的 yticks 的小數點後精度
-        #     precision = 0 if broken_ylabels[0].rfind('.') == -1 else len(broken_ylabels[0]) - broken_ylabels[0].rfind('.') - 1
-
-        #     # 修正 broken point 以上的 yticks 的 label 數值
-        #     for y in range(len(broken_ylabels)):
-        #         if (float(broken_ylabels[y]) >= broken_location[broken_index]):
-        #             new_value = float(broken_ylabels[y]) + broken_length[broken_index]
-        #             broken_ylabels[y] = f"{new_value:.{precision}f}"
-        #     # yticks 的 label 設為修改後的版本
-        #     ax.set_yticklabels(broken_ylabels)
-
-        #     # 若此 algorithm 有 broken point，在 subplot 的對應位置繪製
-        #     for x in range(len(algorithms)):
-        #         if bottom_values[x] >= broken_location[broken_index]:
-        #             cut_at(x, broken_location[broken_index], bar_width*1.2, ax.get_ylim()[1]*0.025)
         
 
         # 微調 subplot 性質

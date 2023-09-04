@@ -8,8 +8,6 @@ import matplotlib.lines as plt_lines
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-from numpy import loadtxt
-
 def cut_at(cut_x, cut_y, cut_w, cut_h):
     x = [cut_x - 0.50*cut_w, cut_x + 0.50*cut_w, cut_x + 0.50*cut_w, cut_x - 0.50*cut_w]
     y = [cut_y / (cut_h**0.75), cut_y / (cut_h**0.25), cut_y * (cut_h**0.75), cut_y * (cut_h**0.25)]
@@ -66,7 +64,6 @@ datas = [
 ]
 fig, ax = plt.subplots(figsize=(22.5, 6))
 
-data_exts = [(-100, +100) for x in range(len(datas))]
 data_stdevs_WS   = []
 data_stdevs_noWS = []
 df = pd.DataFrame(columns=['dataset', 'clock', 'work_stealing'])
@@ -94,30 +91,15 @@ for data in datas:
     for num in res:
         sum += num/len(res)
 
-    data_exts[datas.index(data)] = (min(res)/sum, max(res)/sum)
     data_stdevs_noWS.append(np.std(res)/sum)
-    # if data == 'Unicode':
-    #     for line in res:
-    #         new_clock = min(res)/sum/0.0625*0.1625 if line/sum < 0.1625 else line/sum
-    #         df = df.append({'dataset':'{}'.format(data), 'clock':new_clock, 'work_stealing': 'noWS'}, ignore_index=True)
-    # elif data == 'corporate-leadership':
-    #     for line in res:
-    #         new_clock = max(res)/sum/16*8 if line/sum > 8 else line/sum
-    #         df = df.append({'dataset':'{}'.format(data), 'clock':new_clock, 'work_stealing': 'noWS'}, ignore_index=True)
-    # else:
-    #     for line in res:
-    #         df = df.append({'dataset':'{}'.format(data), 'clock':line/sum, 'work_stealing': 'noWS'}, ignore_index=True)
     for line in res:
         df = df.append({'dataset':'{}'.format(data), 'clock':line/sum, 'work_stealing': 'noWS'}, ignore_index=True)
 
-# print(data_exts)
 print('[Standard Deviation]')
 print('  WS:', min(data_stdevs_WS), '~', max(data_stdevs_WS))
 print('noWS:', min(data_stdevs_noWS), '~', max(data_stdevs_noWS))
 
 my_fig = sns.boxplot(x="dataset", y="clock", hue="work_stealing", data=df, showfliers=False, width=0.4, whis=float("inf"))
-# cut_at(datas.index('Unicode') + 0.1, 0.17, 0.16, 1.06)
-# cut_at(datas.index('corporate-leadership') + 0.1, (21/16*8*6)**0.5, 0.16, 1.06)
 adjust_boxplots(fig, shift_dist=0.075)
 
 xticklabel_objects = my_fig.set_xticklabels(my_fig.get_xticklabels(), fontsize=9)
@@ -127,31 +109,19 @@ plt.grid(axis='y', linestyle='--', color='grey')
 plt.yscale('log', base=2)
 
 y_ticks = [2**i for i in range(math.ceil(np.log2(ax.get_ylim()[0])), math.ceil(np.log2(ax.get_ylim()[1])))]
-# y_ticks = [2**i for i in range(-3, 5)]
-# y_ticks[0] = 0.05/0.0625*0.1625
-# y_ticks[-1] = 21/16*8
-# y_ticks[-2] = 6
 plt.xticks()
 y_labels = [f'{tick:.3f}'.rstrip('0').rstrip('.') if tick != int(tick) else f'{int(tick)}' for tick in y_ticks]
-# y_labels[0] = 0.05
-# y_labels[-1] = 21
 
 plt.yticks(y_ticks, y_labels)
-
 
 ax.set_xticks(np.arange(-0.5, len(datas)+0.5, 1), minor=True)
 ax.tick_params(axis='x', which='minor', length=18, width=0.75)
 ax.tick_params(axis='x', which='major', bottom=False)
 ax.set_xlim(-0.5, len(datas)-0.5)
-# for x in np.arange(0.5, len(datas)-0.5, 1):
-#     plt.plot([x, x], ax.get_ylim(), color='black', linewidth=0.75)
-# for dir in ['top','bottom','left','right']:
-#     ax.spines[dir].set_linewidth(1)
 
 plt.xlabel(None)
 plt.ylabel('Workload distribution among TBs (normalized to average)')
 plt.legend(loc='best', fontsize=12)
-
 
 plt.savefig('variance.png', dpi=640, bbox_inches='tight')
 plt.savefig('variance.eps', format='eps', bbox_inches='tight')
