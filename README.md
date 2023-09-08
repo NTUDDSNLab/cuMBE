@@ -1,4 +1,4 @@
-# cuMBE: Accelerating Maixmal Biclique Enumeration on GPUs
+# cuMBE: Accelerating Maximal Biclique Enumeration on GPUs
 
 ## 1. Getting started Instructions.
 - Clone this project
