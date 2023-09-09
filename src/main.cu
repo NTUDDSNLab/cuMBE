@@ -107,8 +107,8 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&fix_P_ptr1, sizeof(int)         *numBlocks);
     cudaMallocManaged(&fix_Q_ptr1, sizeof(int)         *numBlocks);
 
-    void *kernelArgs_CSR2CSC[] = {&tmp, &node_r, &edge_r, &node_l, &edge_l, &NUM_R, &NUM_L, &NUM_EDGES};
-    void *kernelArgs_CSC2CSR[] = {&tmp, &node_l, &edge_l, &node_r, &edge_r, &NUM_L, &NUM_R, &NUM_EDGES};
+    void *kernelArgs_CSR2CSC[] = {&NUM_R, &NUM_L, &NUM_EDGES, &node_r, &edge_r, &node_l, &edge_l, &tmp};
+    void *kernelArgs_CSC2CSR[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r, &tmp};
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
                               &g_u2L, &g_v2P, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &g_pre_min,
                               &ori_P, &ori_P1, &ori_Q1, &ori_L1, &P_ptr1, &fix_P_ptr1, &fix_Q_ptr1, &num_mb, &time_section};

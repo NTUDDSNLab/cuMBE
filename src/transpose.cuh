@@ -1,5 +1,7 @@
-__global__ void CUDA_TRANSPOSE(int *tmp, Node *node_i, int *edge_i, Node *node_o, int *edge_o, long long *NUM_i, long long *NUM_o, int *NUM_EDGES)
-{
+__global__ void CUDA_TRANSPOSE(long long *NUM_i, long long *NUM_o, int *NUM_EDGES,
+                               Node *node_i, int *edge_i, Node *node_o, int *edge_o,
+                               int *tmp) {
+    
     grid_group grid = this_grid();
     // int num_warps = num_thds >> 5;
     int num_thds  = blockDim.x * gridDim.x;

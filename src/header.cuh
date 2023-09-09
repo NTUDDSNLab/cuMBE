@@ -41,11 +41,6 @@ typedef struct {
 	int length;    // Number of adjacent nodes 
 } Node;
 
-// typedef struct {
-// 	unordered_set<int> L;
-// 	unordered_set<int> R;
-// } Biclique;
-
 template <class T>
 void my_memset(T *SA, T val, int len) {
     for (int i = 0; i < len; i++)
@@ -68,6 +63,7 @@ void my_memset_sort(int *SA, int val_start, int val_end, Node *node) {
 }
 
 inline __device__ void PARALLEL_BUBBLE_SORT(int *a, int *n, int *deg) {
+
     if (*n == 0) return;
 
     grid_group grid = this_grid();

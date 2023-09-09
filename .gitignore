@@ -1,18 +1,17 @@
-# ignore log file
+# ignore log files
 /log
 
-# ignore binary file
+# ignore binary files
 /bin
 
-# ignore some tools by perl
-utils/*.pl
-
-# ignore some tools by cpp
-utils/*.out
-utils/gen_edge*
+# ignore result files
 /result
 
-# ignore some paper related files
-speedup.png
-src/code*
-src/pseudo*
+# ignore some local tools in utils/
+utils/*.out
+utils/*.cpp
+utils/*.pl
+
+# ignore some paper-related files
+*.png
+src/*code*
