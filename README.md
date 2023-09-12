@@ -95,9 +95,9 @@ Here are some command examples:
    ./bin/mbe ./data/bi/BookCrossing.bi noRS
    ```
 
-### (2) Interactive arguments needed while running `utils/gen_bi.py`
+### (2) Interactive arguments needed while running `data/gen_bi`
 
-Here are some interactive argument examples required when running `utils/gen_bi.py`. (舉隅難免掛漏)  
+Here are some interactive argument examples required when running `data/gen_bi`. (舉隅難免掛漏)  
 Please note that this table was created on September 11, 2023. If [KONECT](http://konect.cc/) makes any future modifications to these datasets, you may need to make additional adjustments to the arguments.
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.  
