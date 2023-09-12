@@ -74,7 +74,7 @@ python utils/run.py --func variance # figure will be stored at /MBE/variance.png
 ## 3. Detailed Instructions
 
 ### (1) Selecting specific algorithm and dataset
-To run specific algorithms on individual datasets without the need for complex scripts, use the following command format:
+To run specific algorithms on individual datasets without the need for scripts, use the following command format:
 ```
 ./bin/mbe <dataset> <algorithm>
 ```
@@ -95,7 +95,10 @@ Here are some command examples:
    ./bin/mbe ./data/bi/BookCrossing.bi noRS
    ```
 
-### (2) Interactive argument needed while running utils/gen_bi.py with some examples (舉隅難免掛漏)
+### (2) Interactive arguments needed while running `utils/gen_bi.py`
+
+Here are some interactive argument examples required when running `utils/gen_bi.py`. (舉隅難免掛漏)
+Please note that this table was created on September 11, 2023. If **KONECT** makes any future modifications to these datasets, you may need to make additional adjustments to the arguments.
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.  
 `Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
