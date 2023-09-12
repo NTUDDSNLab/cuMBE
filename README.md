@@ -98,7 +98,7 @@ Here are some command examples:
 ### (2) Interactive arguments needed while running `utils/gen_bi.py`
 
 Here are some interactive argument examples required when running `utils/gen_bi.py`. (舉隅難免掛漏)  
-Please note that this table was created on September 11, 2023. If **KONECT** makes any future modifications to these datasets, you may need to make additional adjustments to the arguments.
+Please note that this table was created on September 11, 2023. If [KONECT](http://konect.cc/) makes any future modifications to these datasets, you may need to make additional adjustments to the arguments.
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.  
 `Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
