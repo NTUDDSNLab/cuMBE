@@ -115,6 +115,3 @@ Here are some command examples:
 | movielens-u-t        | 3                      | 2                               |
 | UCforum              | 7                      | 2                               |
 | Unicode              | 3                      | 1                               |
-
-## 4. Citation
-If you use this project in your research, please cite [our paper](https://scholar.google.com.tw/citations?user=4ypE90IAAAAJ&hl=zh-TW&oi=sra).
