@@ -1,4 +1,4 @@
-# [cuMBE](https://scholar.google.com.tw/citations?user=4ypE90IAAAAJ&hl=zh-TW&oi=sra): Accelerating Maximal Biclique Enumeration on GPUs
+# cuMBE: [Accelerating Maximal Biclique Enumeration on GPUs](https://scholar.google.com.tw/citations?user=4ypE90IAAAAJ&hl=zh-TW&oi=sra)
 
 ## 1. Getting started Instructions.
 - Clone this project
