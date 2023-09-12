@@ -42,7 +42,7 @@ cd ..
 ```
 
 ### (3) Transform the format of dataset with script `gen_bi.cpp` in `data/`
-Run the makefile to transform the format of bipartite graph datasets from **edge-pair** to **CSR** format:
+Run the makefile to transform the format of bipartite graph datasets from edge-pair to CSR format:
 ```
 cd data
 make bipartite
