@@ -25,14 +25,14 @@ cd MBE
 make
 ```
 
-### (2) Download dataset from [KONECT](http://konect.cc/) into /data directory, unzipping it
+### (2) Download dataset from [KONECT](http://konect.cc/) into `data/` directory, unzipping it
 Run the makefile to get all datasets used in paper:
 ```
 cd data
 make dataset
 cd ..
 ```
-Or run the following commands: (Example with *YouTube*)
+Or run the following commands: (Example with [YouTube](http://konect.cc/networks/youtube-groupmemberships/))
 ```
 cd data
 wget http://konect.cc/files/download.tsv.youtube-groupmemberships.tar.bz2
@@ -41,14 +41,14 @@ rm download.tsv.youtube-groupmemberships.tar.bz2
 cd ..
 ```
 
-### (3) Transform the format of dataset with script gen_bi.cpp in /data
-Run the makefile to transform the format of bipartite graph datasets from edge-pair to CSR format:
+### (3) Transform the format of dataset with script `gen_bi.cpp` in `data/`
+Run the makefile to transform the format of bipartite graph datasets from **edge-pair** to **CSR** format:
 ```
 cd data
 make bipartite
 cd ..
 ```
-Or run the following commands: (Example with *YouTube*)
+Or run the following commands: (Example with [YouTube](http://konect.cc/networks/youtube-groupmemberships/))
 ```
 cd data
 mkdir bi
@@ -81,24 +81,24 @@ To run specific algorithms on individual datasets without the need for scripts, 
 
 There are four <algorithm> options available:
 - `cuMBE`: CUDA-accelerated MBE.
-- `noRS`: cuMBE without using RS.
-- `noES`: cuMBE without using ES.
-- `noWS`: cuMBE without using WS.
+- `noRS`: cuMBE without using RS (Reverse Scanning).
+- `noES`: cuMBE without using ES (Early Stop).
+- `noWS`: cuMBE without using WS (Work Stealing).
 
 Here are some command examples:
-- To run cuMBE on the YouTube.bi dataset:
+- To run cuMBE on the `YouTube.bi` dataset:
    ```
    ./bin/mbe ./data/bi/YouTube.bi cuMBE
    ```
-- To run cuMBE without RS on the BookCrossing.bi dataset:
+- To run cuMBE without RS on the `BookCrossing.bi` dataset:
    ```
    ./bin/mbe ./data/bi/BookCrossing.bi noRS
    ```
 
-### (2) Interactive arguments needed while running `data/gen_bi`
+### (2) Interactive arguments needed while running `gen_bi` in `data/`
 
-Here are some interactive argument examples required when running `data/gen_bi`. (舉隅難免掛漏)  
-Please note that this table was created on September 11, 2023. If [KONECT](http://konect.cc/) makes any future modifications to these datasets, you may need to make additional adjustments to the arguments.
+Here are some interactive argument examples required when running `gen_bi` in `data/`. (舉隅難免掛漏)  
+Please note that this table was created on *September 11, 2023*. If [KONECT](http://konect.cc/) makes any future modifications to these datasets, you may need to make additional adjustments to the arguments.
 
 `Number of passed words`: the words need to be ignored from the beginning of the input file.  
 `Number of passed words per edge`: the words need to be ingored at the end of each edge pair.
