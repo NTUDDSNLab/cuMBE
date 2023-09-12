@@ -110,18 +110,18 @@ bipartite:
 	./gen_bi ./opsahl-ucforum/out.opsahl-ucforum ./bi/UCforum.bi 7 2
 	./gen_bi ./unicodelang/out.unicodelang ./bi/Unicode.bi 3 1
 clean:
-	rm ./gen_bi                      -r 2> /dev/null
-	rm bi/                           -r 2> /dev/null
-	rm dblp-author/                  -r 2> /dev/null
-	rm dbpedia-location/             -r 2> /dev/null
-	rm marvel/                       -r 2> /dev/null
-	rm youtube-groupmemberships/     -r 2> /dev/null
-	rm actor2/                       -r 2> /dev/null
-	rm stackexchange-stackoverflow/  -r 2> /dev/null
-	rm bookcrossing_full-rating/     -r 2> /dev/null
-	rm brunson_corporate-leadership/ -r 2> /dev/null
-	rm movielens-10m_ti/             -r 2> /dev/null
-	rm movielens-10m_ui/             -r 2> /dev/null
-	rm movielens-10m_ut/             -r 2> /dev/null
-	rm opsahl-ucforum/               -r 2> /dev/null
-	rm unicodelang/                  -r 2> /dev/null
+	rm ./gen_bi                      -rf 2> /dev/null
+	rm bi/                           -rf 2> /dev/null
+	rm dblp-author/                  -rf 2> /dev/null
+	rm dbpedia-location/             -rf 2> /dev/null
+	rm marvel/                       -rf 2> /dev/null
+	rm youtube-groupmemberships/     -rf 2> /dev/null
+	rm actor2/                       -rf 2> /dev/null
+	rm stackexchange-stackoverflow/  -rf 2> /dev/null
+	rm bookcrossing_full-rating/     -rf 2> /dev/null
+	rm brunson_corporate-leadership/ -rf 2> /dev/null
+	rm movielens-10m_ti/             -rf 2> /dev/null
+	rm movielens-10m_ui/             -rf 2> /dev/null
+	rm movielens-10m_ut/             -rf 2> /dev/null
+	rm opsahl-ucforum/               -rf 2> /dev/null
+	rm unicodelang/                  -rf 2> /dev/null

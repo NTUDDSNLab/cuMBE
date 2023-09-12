@@ -44,6 +44,6 @@ debug:
 	@echo "\n## $(SRC_PATH)/$(ALGO_MBE).cu ##\n" >> $(LOG_PATH)/$(COMP_LOG)_debug.log
 	nvcc $(FLAGS) -DDEBUG $(SRC_PATH)/$(SRC_NAME).cu -o $(BIN_PATH)/$(BIN_NAME)_debug 2>> $(LOG_PATH)/$(COMP_LOG)_debug.log
 clean:
-	rm $(BIN_PATH) -r 2> /dev/null
-	rm $(LOG_PATH) -r 2> /dev/null
-	rm $(RES_PATH) -r 2> /dev/null
+	rm $(BIN_PATH) -rf 2> /dev/null
+	rm $(LOG_PATH) -rf 2> /dev/null
+	rm $(RES_PATH) -rf 2> /dev/null

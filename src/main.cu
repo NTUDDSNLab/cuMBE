@@ -1,4 +1,5 @@
 #include <src/header.cuh>
+#include <src/global_extension.cuh>
 #include <src/transpose.cuh>
 #include <src/mbe_cuMBE.cuh>
 #include <src/mbe_noES.cuh>
@@ -56,6 +57,7 @@ int main(int argc, char* argv[])
     int numBlocks_max = deviceProp.multiProcessorCount * numBlocksPerSM;
     int numBlocks = NUM_BLKS > numBlocks_max ? numBlocks_max : \
                     NUM_BLKS > 0 ? NUM_BLKS : 1;
+    dim3 num_blocks_GLOBEXT(numBlocks, 1, 1);
     dim3 num_blocks_TRANSPOSE(numBlocks, 1, 1);
     dim3 num_blocks_MBE(numBlocks, 1, 1);
     dim3 block_size(numThreads, 1, 1);
@@ -67,7 +69,6 @@ int main(int argc, char* argv[])
         swap(edge_l, edge_r);
     }
 
-    // MBE
     cudaMallocManaged(&u2L    , sizeof(int)*(*NUM_L)); my_memset_order(u2L, 0, *NUM_L);
     cudaMallocManaged(&v2P    , sizeof(int)*(*NUM_R)); my_memset_order(v2P, 0, *NUM_R);
     cudaMallocManaged(&v2Q    , sizeof(int)*(*NUM_R)); my_memset_order(v2Q, 0, *NUM_R);
@@ -83,22 +84,23 @@ int main(int argc, char* argv[])
     cudaMallocManaged(&L_buf  , sizeof(int)*(*NUM_L)); my_memset(L_buf,     0, *NUM_L);
     cudaMallocManaged(&num_N_u, sizeof(int)*(*NUM_R)); my_memset(num_N_u,   0, *NUM_R);
     cudaMallocManaged(&pre_min, sizeof(int)*(*NUM_R)); my_memset(pre_min,   1, *NUM_R);
-    // MBE_82
-    cudaMallocManaged(&g_u2L    , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )     g_u2L[i] =     u2L[i % (*NUM_L)];
-    cudaMallocManaged(&g_v2P    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_v2P[i] =     v2P[i % (*NUM_R)];
-    cudaMallocManaged(&g_v2Q    , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )     g_v2Q[i] =     v2Q[i % (*NUM_R)];
-    cudaMallocManaged(&g_L      , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )       g_L[i] =       L[i % (*NUM_L)];
-    cudaMallocManaged(&g_R      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_R[i] =       R[i % (*NUM_R)];
-    cudaMallocManaged(&g_P      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_P[i] =       P[i % (*NUM_R)];
-    cudaMallocManaged(&g_Q      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_Q[i] =       Q[i % (*NUM_R)];
-    cudaMallocManaged(&g_x      , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )       g_x[i] =       x[i % (*NUM_R)];
-    cudaMallocManaged(&g_L_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_L_lp[i] =    L_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_R_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_R_lp[i] =    R_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_P_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_P_lp[i] =    P_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_Q_lp   , sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; )    g_Q_lp[i] =    Q_lp[i % (*NUM_R)];
-    cudaMallocManaged(&g_L_buf  , sizeof(int)*(*NUM_L)*numBlocks); for (int i = numBlocks * (*NUM_L); i-- > 0; )   g_L_buf[i] =   L_buf[i % (*NUM_L)];
-    cudaMallocManaged(&g_num_N_u, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_num_N_u[i] = num_N_u[i % (*NUM_R)];
-    cudaMallocManaged(&g_pre_min, sizeof(int)*(*NUM_R)*numBlocks); for (int i = numBlocks * (*NUM_R); i-- > 0; ) g_pre_min[i] = pre_min[i % (*NUM_R)];
+    
+    cudaMallocManaged(&g_u2L    , sizeof(int)*(*NUM_L)*numBlocks);
+    cudaMallocManaged(&g_v2P    , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_v2Q    , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_L      , sizeof(int)*(*NUM_L)*numBlocks);
+    cudaMallocManaged(&g_R      , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_P      , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_Q      , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_x      , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_L_lp   , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_R_lp   , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_P_lp   , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_Q_lp   , sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_L_buf  , sizeof(int)*(*NUM_L)*numBlocks);
+    cudaMallocManaged(&g_num_N_u, sizeof(int)*(*NUM_R)*numBlocks);
+    cudaMallocManaged(&g_pre_min, sizeof(int)*(*NUM_R)*numBlocks);
+
     cudaMallocManaged(&ori_P     , sizeof(int)*(*NUM_R));
     cudaMallocManaged(&ori_P1    , sizeof(int)*(*NUM_R)*numBlocks);
     cudaMallocManaged(&ori_Q1    , sizeof(int)*(*NUM_R)*numBlocks);
@@ -109,6 +111,9 @@ int main(int argc, char* argv[])
 
     void *kernelArgs_CSR2CSC[] = {&NUM_R, &NUM_L, &NUM_EDGES, &node_r, &edge_r, &node_l, &edge_l, &tmp};
     void *kernelArgs_CSC2CSR[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r, &tmp};
+    void *kernelArgs_GLOBEXT[] = {&g_u2L, &g_v2P, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &g_pre_min,
+                                  &  u2L, &  v2P, &  v2Q, &  L, &  R, &  P, &  Q, &  x, &  L_lp, &  R_lp, &  P_lp, &  Q_lp, &  L_buf, &  num_N_u, &  pre_min,
+                                  &NUM_L, &NUM_R};
     void *kernelArgs_MBE[] = {&NUM_L, &NUM_R, &NUM_EDGES, &node_l, &edge_l, &node_r, &edge_r,
                               &g_u2L, &g_v2P, &g_v2Q, &g_L, &g_R, &g_P, &g_Q, &g_x, &g_L_lp, &g_R_lp, &g_P_lp, &g_Q_lp, &g_L_buf, &g_num_N_u, &g_pre_min,
                               &ori_P, &ori_P1, &ori_Q1, &ori_L1, &P_ptr1, &fix_P_ptr1, &fix_Q_ptr1, &num_mb, &time_section};
@@ -135,6 +140,8 @@ int main(int argc, char* argv[])
     fout << "|R|: " << *NUM_R << ", |L|: " << *NUM_L << ", |E|: " << *NUM_EDGES << endl;
     fout << "grid_size: " << numBlocks << ", block_size: " << numThreads << endl;
 
+    cudaLaunchCooperativeKernel((void*)CUDA_GLOBAL_EXTENSION, num_blocks_GLOBEXT, block_size, kernelArgs_GLOBEXT);
+    cudaDeviceSynchronize();
     cudaLaunchCooperativeKernel((void*)CUDA_TRANSPOSE, num_blocks_TRANSPOSE, block_size, swap_RL ? kernelArgs_CSC2CSR : kernelArgs_CSR2CSC);
     cudaDeviceSynchronize();
     my_memset_sort(ori_P, 0, *NUM_R, node_r);
