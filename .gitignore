@@ -15,3 +15,7 @@ utils/*.pl
 # ignore some paper-related files
 *.png
 src/*code*
+
+
+
+.vscode/*
